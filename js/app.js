@@ -2604,7 +2604,107 @@ function getMonthName(month) {
                     'July', 'August', 'September', 'October', 'November', 'December'];
     return months[parseInt(month)] || month;
 }
+// ============================================
+// BULK UPLOAD TEMPLATE FUNCTIONS
+// ============================================
 
+function downloadTemplate(type) {
+    let csvContent = '';
+    let filename = '';
+    
+    switch(type) {
+        case 'employees':
+            csvContent = 'emp_name,mobile,designation,reporting_to,email,password\n';
+            csvContent += 'John Doe,9876543210,SR,EMP001,john@email.com,123456\n';
+            csvContent += 'Jane Smith,9876543211,SO,EMP002,jane@email.com,123456\n';
+            filename = 'employee_upload_template.csv';
+            break;
+            
+        case 'products':
+            csvContent = 'product_name,product_code,category,unit,mrp,pts,ptr\n';
+            csvContent += 'Product A,PROD001,Category1,Pcs,100,90,85\n';
+            csvContent += 'Product B,PROD002,Category2,Box,200,180,170\n';
+            filename = 'product_upload_template.csv';
+            break;
+            
+        case 'customer_transfer':
+            csvContent = 'customer_id,new_emp_id\n';
+            csvContent += 'CUST001,EMP002\n';
+            csvContent += 'CUST002,EMP003\n';
+            filename = 'customer_transfer_template.csv';
+            break;
+    }
+    
+    // Create and download file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    showToast('Template downloaded', 'success');
+}
+
+// ============================================
+// BULK CUSTOMER TRANSFER BY FILE UPLOAD
+// ============================================
+
+async function bulkTransferByFile() {
+    const fileInput = document.getElementById('transferFileInput');
+    const file = fileInput?.files[0];
+    
+    if (!file) {
+        showToast('Please select a CSV file', 'error');
+        return;
+    }
+    
+    showLoading();
+    
+    const reader = new FileReader();
+    reader.onload = async function(event) {
+        const text = event.target.result;
+        const lines = text.split('\n').filter(line => line.trim());
+        
+        if (lines.length < 2) {
+            hideLoading();
+            showToast('File is empty or invalid', 'error');
+            return;
+        }
+        
+        let transferred = 0;
+        let failed = 0;
+        
+        // Skip header row
+        for (let i = 1; i < lines.length; i++) {
+            const [customerId, newEmpId] = lines[i].split(',').map(v => v.trim());
+            
+            if (customerId && newEmpId) {
+                try {
+                    const response = await apiCall('transferCustomer', {
+                        customer_id: customerId,
+                        new_emp_id: newEmpId
+                    });
+                    
+                    if (response.success) {
+                        transferred++;
+                    } else {
+                        failed++;
+                    }
+                } catch (error) {
+                    failed++;
+                }
+            }
+        }
+        
+        hideLoading();
+        showToast(`Transferred: ${transferred}, Failed: ${failed}`, transferred > 0 ? 'success' : 'error');
+        loadAllCustomers();
+    };
+    
+    reader.readAsText(file);
+}
 // ============================================
 // END OF APP.JS
 // ============================================
