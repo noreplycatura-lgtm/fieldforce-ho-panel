@@ -3,719 +3,947 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HO Admin Panel - Field Force</title>
-    <link rel="stylesheet" href="css/style.css">
+    <title>HO Admin Panel - Field Rep App</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-    <!-- Login Screen -->
-    <div id="loginScreen" class="login-container">
-        <div class="login-box">
-            <div class="login-header">
-                <i class="fas fa-building"></i>
-                <h1>HO Admin Panel</h1>
-                <p>Field Force Management System</p>
+    <!-- Login Page -->
+    <div id="loginPage" class="page active">
+        <div class="login-container">
+            <div class="login-box">
+                <div class="login-header">
+                    <i class="fas fa-building"></i>
+                    <h1>HO Admin Panel</h1>
+                    <p>Field Representative Management System</p>
+                </div>
+                <form id="loginForm">
+                    <div class="form-group">
+                        <label>User Code</label>
+                        <input type="text" id="userCode" placeholder="Enter User Code" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" id="password" placeholder="Enter Password" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-full">
+                        <i class="fas fa-sign-in-alt"></i> Login
+                    </button>
+                </form>
+                <div id="loginError" class="error-msg hidden"></div>
             </div>
-            <form id="loginForm">
-                <div class="form-group">
-                    <label>User Code</label>
-                    <input type="text" id="loginUserCode" placeholder="Enter User Code" required>
-                </div>
-                <div class="form-group">
-                    <label>Password</label>
-                    <input type="password" id="loginPassword" placeholder="Enter Password" required>
-                </div>
-                <button type="submit" class="btn btn-primary btn-block">
-                    <i class="fas fa-sign-in-alt"></i> Login
-                </button>
-            </form>
-            <div id="loginError" class="error-msg hidden"></div>
         </div>
     </div>
 
     <!-- Main App -->
-    <div id="mainApp" class="app-container hidden">
+    <div id="mainApp" class="hidden">
         <!-- Sidebar -->
-        <aside class="sidebar">
+        <nav class="sidebar" id="sidebar">
             <div class="sidebar-header">
                 <i class="fas fa-building"></i>
                 <span>HO Panel</span>
-            </div>
-            <nav class="sidebar-nav">
-                <a href="#" class="nav-item active" data-page="dashboard">
-                    <i class="fas fa-tachometer-alt"></i>
-                    <span>Dashboard</span>
-                </a>
-                <a href="#" class="nav-item" data-page="employees">
-                    <i class="fas fa-users"></i>
-                    <span>Employees</span>
-                </a>
-                <a href="#" class="nav-item" data-page="customers">
-                    <i class="fas fa-user-md"></i>
-                    <span>Customers</span>
-                </a>
-                <a href="#" class="nav-item" data-page="stockists">
-                    <i class="fas fa-warehouse"></i>
-                    <span>Stockists</span>
-                </a>
-                <a href="#" class="nav-item" data-page="products">
-                    <i class="fas fa-pills"></i>
-                    <span>Products</span>
-                </a>
-                <a href="#" class="nav-item" data-page="areas">
-                    <i class="fas fa-map-marker-alt"></i>
-                    <span>Areas</span>
-                </a>
-                <a href="#" class="nav-item" data-page="expenses">
-                    <i class="fas fa-receipt"></i>
-                    <span>Expenses</span>
-                </a>
-                <a href="#" class="nav-item" data-page="approvals">
-                    <i class="fas fa-check-circle"></i>
-                    <span>Approvals</span>
-                    <span id="approvalBadge" class="badge hidden">0</span>
-                </a>
-                <a href="#" class="nav-item" data-page="reports">
-                    <i class="fas fa-chart-bar"></i>
-                    <span>Reports</span>
-                </a>
-                <a href="#" class="nav-item" data-page="announcements">
-                    <i class="fas fa-bullhorn"></i>
-                    <span>Announcements</span>
-                </a>
-                <a href="#" class="nav-item" data-page="hierarchy">
-                    <i class="fas fa-sitemap"></i>
-                    <span>Hierarchy</span>
-                </a>
-                <a href="#" class="nav-item" data-page="settings">
-                    <i class="fas fa-cog"></i>
-                    <span>Settings</span>
-                </a>
-            </nav>
-            <div class="sidebar-footer">
-                <button id="logoutBtn" class="btn btn-outline btn-sm">
-                    <i class="fas fa-sign-out-alt"></i> Logout
+                <button class="sidebar-toggle" id="sidebarToggle">
+                    <i class="fas fa-bars"></i>
                 </button>
             </div>
-        </aside>
+            <ul class="nav-menu">
+                <li class="nav-item active" data-page="dashboard">
+                    <i class="fas fa-chart-pie"></i>
+                    <span>Dashboard</span>
+                </li>
+                <li class="nav-item" data-page="employees">
+                    <i class="fas fa-users"></i>
+                    <span>Employees</span>
+                </li>
+                <li class="nav-item" data-page="customers">
+                    <i class="fas fa-user-tie"></i>
+                    <span>Customers</span>
+                </li>
+                <li class="nav-item" data-page="stockists">
+                    <i class="fas fa-store"></i>
+                    <span>Stockists</span>
+                </li>
+                <li class="nav-item" data-page="products">
+                    <i class="fas fa-box"></i>
+                    <span>Products</span>
+                </li>
+                <li class="nav-item" data-page="areas">
+                    <i class="fas fa-map-marker-alt"></i>
+                    <span>Areas</span>
+                </li>
+                <li class="nav-item" data-page="expenses">
+                    <i class="fas fa-receipt"></i>
+                    <span>Expenses</span>
+                </li>
+                <li class="nav-item" data-page="hierarchy">
+                    <i class="fas fa-sitemap"></i>
+                    <span>Hierarchy</span>
+                </li>
+                <li class="nav-item" data-page="announcements">
+                    <i class="fas fa-bullhorn"></i>
+                    <span>Announcements</span>
+                </li>
+                <li class="nav-item" data-page="reports">
+                    <i class="fas fa-chart-bar"></i>
+                    <span>Reports</span>
+                </li>
+                <li class="nav-item" data-page="settings">
+                    <i class="fas fa-cog"></i>
+                    <span>Settings</span>
+                </li>
+            </ul>
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <i class="fas fa-user-circle"></i>
+                    <span id="currentUserName">Admin</span>
+                </div>
+                <button class="btn-logout" id="logoutBtn">
+                    <i class="fas fa-sign-out-alt"></i>
+                </button>
+            </div>
+        </nav>
 
         <!-- Main Content -->
         <main class="main-content">
             <!-- Header -->
-            <header class="main-header">
+            <header class="header">
                 <div class="header-left">
-                    <button id="sidebarToggle" class="btn-icon">
+                    <button class="mobile-menu-btn" id="mobileMenuBtn">
                         <i class="fas fa-bars"></i>
                     </button>
                     <h2 id="pageTitle">Dashboard</h2>
                 </div>
                 <div class="header-right">
-                    <span id="currentDate"></span>
-                    <div class="user-info">
-                        <i class="fas fa-user-circle"></i>
-                        <span id="userName">Admin</span>
-                    </div>
+                    <span class="date-time" id="dateTime"></span>
+                    <button class="btn-icon" id="refreshBtn" title="Refresh">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
                 </div>
             </header>
 
-            <!-- Page Content -->
-            <div class="page-content">
-                <!-- Dashboard Page -->
-                <div id="dashboardPage" class="page active">
-                    <div class="stats-grid">
-                        <div class="stat-card">
-                            <div class="stat-icon bg-blue"><i class="fas fa-users"></i></div>
-                            <div class="stat-info">
-                                <span class="stat-value" id="statActiveEmployees">0</span>
-                                <span class="stat-label">Active Employees</span>
-                            </div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-icon bg-green"><i class="fas fa-check-circle"></i></div>
-                            <div class="stat-info">
-                                <span class="stat-value" id="statTodayPunches">0</span>
-                                <span class="stat-label">Today Punches</span>
-                            </div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-icon bg-purple"><i class="fas fa-phone"></i></div>
-                            <div class="stat-info">
-                                <span class="stat-value" id="statTodayVisits">0</span>
-                                <span class="stat-label">Today Visits</span>
-                            </div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-icon bg-orange"><i class="fas fa-rupee-sign"></i></div>
-                            <div class="stat-info">
-                                <span class="stat-value" id="statTodayPOB">₹0</span>
-                                <span class="stat-label">Today POB</span>
-                            </div>
-                        </div>
-                        <div class="stat-card warning">
-                            <div class="stat-icon bg-yellow"><i class="fas fa-user-plus"></i></div>
-                            <div class="stat-info">
-                                <span class="stat-value" id="statPendingCustomers">0</span>
-                                <span class="stat-label">Pending Customers</span>
-                            </div>
-                        </div>
-                        <div class="stat-card warning">
-                            <div class="stat-icon bg-red"><i class="fas fa-file-invoice"></i></div>
-                            <div class="stat-info">
-                                <span class="stat-value" id="statPendingExpenses">0</span>
-                                <span class="stat-label">Pending Expenses</span>
-                            </div>
+            <!-- Dashboard Page -->
+            <section id="dashboardPage" class="content-page active">
+                <div class="stats-grid">
+                    <div class="stat-card blue">
+                        <div class="stat-icon"><i class="fas fa-users"></i></div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="statEmployees">0</span>
+                            <span class="stat-label">Active Employees</span>
                         </div>
                     </div>
-
-                    <div class="dashboard-grid">
-                        <div class="card">
-                            <div class="card-header">
-                                <h3>Recent Visits</h3>
-                                <a href="#" class="link" data-page="reports">View All</a>
-                            </div>
-                            <div class="card-body">
-                                <table class="table">
-                                    <thead>
-                                        <tr>
-                                            <th>Employee</th>
-                                            <th>Customer</th>
-                                            <th>Time</th>
-                                            <th>POB</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="recentVisitsTable">
-                                        <tr><td colspan="4" class="text-center">Loading...</td></tr>
-                                    </tbody>
-                                </table>
-                            </div>
+                    <div class="stat-card green">
+                        <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="statTodayPunches">0</span>
+                            <span class="stat-label">Today's Punches</span>
                         </div>
-                        <div class="card">
-                            <div class="card-header">
-                                <h3>Quick Actions</h3>
-                            </div>
-                            <div class="card-body">
-                                <div class="quick-actions">
-                                    <button class="action-btn" onclick="showPage('employees'); showEmployeeModal()">
-                                        <i class="fas fa-user-plus"></i>
-                                        <span>Add Employee</span>
-                                    </button>
-                                    <button class="action-btn" onclick="showPage('approvals')">
-                                        <i class="fas fa-check-double"></i>
-                                        <span>Approvals</span>
-                                    </button>
-                                    <button class="action-btn" onclick="showPage('announcements'); showAnnouncementModal()">
-                                        <i class="fas fa-bullhorn"></i>
-                                        <span>New Announcement</span>
-                                    </button>
-                                    <button class="action-btn" onclick="createBackup()">
-                                        <i class="fas fa-download"></i>
-                                        <span>Backup Data</span>
-                                    </button>
-                                </div>
-                            </div>
+                    </div>
+                    <div class="stat-card purple">
+                        <div class="stat-icon"><i class="fas fa-map-marker-alt"></i></div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="statTodayVisits">0</span>
+                            <span class="stat-label">Today's Visits</span>
+                        </div>
+                    </div>
+                    <div class="stat-card orange">
+                        <div class="stat-icon"><i class="fas fa-rupee-sign"></i></div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="statTodayPOB">₹0</span>
+                            <span class="stat-label">Today's POB</span>
                         </div>
                     </div>
                 </div>
 
-                <!-- Employees Page -->
-                <div id="employeesPage" class="page">
-                    <div class="page-header">
-                        <div class="page-actions">
-                            <input type="text" id="employeeSearch" class="search-input" placeholder="Search employees...">
-                            <select id="employeeStatusFilter" class="select-input">
-                                <option value="all">All Status</option>
-                                <option value="Active">Active</option>
-                                <option value="Blocked">Blocked</option>
-                                <option value="Deleted">Deleted</option>
-                            </select>
-                            <button class="btn btn-primary" onclick="showEmployeeModal()">
-                                <i class="fas fa-plus"></i> Add Employee
-                            </button>
-                            <button class="btn btn-secondary" onclick="showBulkUploadModal('employee')">
-                                <i class="fas fa-upload"></i> Bulk Upload
-                            </button>
-                        </div>
-                    </div>
+                <div class="dashboard-grid">
+                    <!-- Pending Approvals -->
                     <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-clock"></i> Pending Approvals</h3>
+                        </div>
                         <div class="card-body">
-                            <table class="table" id="employeesTable">
-                                <thead>
-                                    <tr>
-                                        <th>ID</th>
-                                        <th>Name</th>
-                                        <th>Mobile</th>
-                                        <th>Designation</th>
-                                        <th>Reporting To</th>
-                                        <th>Status</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="employeesTableBody">
-                                    <tr><td colspan="7" class="text-center">Loading...</td></tr>
-                                </tbody>
-                            </table>
+                            <div class="pending-item" onclick="navigateTo('customers')">
+                                <span class="pending-label">Customer Approvals</span>
+                                <span class="pending-count" id="pendingCustomers">0</span>
+                            </div>
+                            <div class="pending-item" onclick="navigateTo('expenses')">
+                                <span class="pending-label">Expense Approvals</span>
+                                <span class="pending-count" id="pendingExpenses">0</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Activity -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-history"></i> Recent Visits</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="activity-list" id="recentVisitsList">
+                                <p class="text-muted">Loading...</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quick Stats Chart -->
+                    <div class="card full-width">
+                        <div class="card-header">
+                            <h3><i class="fas fa-chart-line"></i> This Month Performance</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="performance-bars" id="performanceBars">
+                                <!-- Dynamic content -->
+                            </div>
                         </div>
                     </div>
                 </div>
+            </section>
 
-                <!-- Customers Page -->
-                <div id="customersPage" class="page">
-                    <div class="page-header">
-                        <div class="page-actions">
-                            <input type="text" id="customerSearch" class="search-input" placeholder="Search customers...">
-                            <select id="customerStatusFilter" class="select-input">
+            <!-- Employees Page -->
+            <section id="employeesPage" class="content-page">
+                <div class="page-actions">
+                    <div class="search-box">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="empSearch" placeholder="Search employees...">
+                    </div>
+                    <div class="action-buttons">
+                        <button class="btn btn-secondary" onclick="openBulkUploadModal('employees')">
+                            <i class="fas fa-upload"></i> Bulk Upload
+                        </button>
+                        <button class="btn btn-primary" onclick="openEmployeeModal()">
+                            <i class="fas fa-plus"></i> Add Employee
+                        </button>
+                    </div>
+                </div>
+                <div class="table-container">
+                    <table class="data-table" id="employeesTable">
+                        <thead>
+                            <tr>
+                                <th>Emp ID</th>
+                                <th>Name</th>
+                                <th>Mobile</th>
+                                <th>Designation</th>
+                                <th>Reporting To</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="employeesTableBody">
+                            <tr><td colspan="7" class="text-center">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Customers Page -->
+            <section id="customersPage" class="content-page">
+                <div class="tabs">
+                    <button class="tab active" data-tab="pendingCustomers">Pending Approval</button>
+                    <button class="tab" data-tab="allCustomers">All Customers</button>
+                    <button class="tab" data-tab="transferCustomers">Transfer</button>
+                </div>
+
+                <!-- Pending Customers Tab -->
+                <div id="pendingCustomersTab" class="tab-content active">
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Customer Name</th>
+                                    <th>Specialty</th>
+                                    <th>Area</th>
+                                    <th>Mobile</th>
+                                    <th>Added By</th>
+                                    <th>Date</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pendingCustomersBody">
+                                <tr><td colspan="7" class="text-center">Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- All Customers Tab -->
+                <div id="allCustomersTab" class="tab-content">
+                    <div class="page-actions">
+                        <div class="search-box">
+                            <i class="fas fa-search"></i>
+                            <input type="text" id="custSearch" placeholder="Search customers...">
+                        </div>
+                        <div class="filter-group">
+                            <select id="custStatusFilter">
                                 <option value="all">All Status</option>
                                 <option value="Approved">Approved</option>
                                 <option value="Pending">Pending</option>
                                 <option value="Rejected">Rejected</option>
                             </select>
-                            <select id="customerAreaFilter" class="select-input">
-                                <option value="all">All Areas</option>
+                        </div>
+                    </div>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Code</th>
+                                    <th>Customer Name</th>
+                                    <th>Specialty</th>
+                                    <th>Area</th>
+                                    <th>City</th>
+                                    <th>Mobile</th>
+                                    <th>Status</th>
+                                    <th>Created By</th>
+                                </tr>
+                            </thead>
+                            <tbody id="allCustomersBody">
+                                <tr><td colspan="8" class="text-center">Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Transfer Customers Tab -->
+                <div id="transferCustomersTab" class="tab-content">
+                    <div class="transfer-container">
+                        <div class="transfer-box">
+                            <h4>Bulk Transfer Customers</h4>
+                            <div class="form-group">
+                                <label>From Employee</label>
+                                <select id="transferFromEmp"></select>
+                            </div>
+                            <div class="form-group">
+                                <label>To Employee</label>
+                                <select id="transferToEmp"></select>
+                            </div>
+                            <div class="form-group">
+                                <label>Select Customers</label>
+                                <div class="checkbox-list" id="transferCustomersList">
+                                    <p class="text-muted">Select "From Employee" first</p>
+                                </div>
+                            </div>
+                            <button class="btn btn-primary" onclick="bulkTransferCustomers()">
+                                <i class="fas fa-exchange-alt"></i> Transfer Selected
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Stockists Page -->
+            <section id="stockistsPage" class="content-page">
+                <div class="page-actions">
+                    <div class="search-box">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="stockSearch" placeholder="Search stockists...">
+                    </div>
+                    <button class="btn btn-primary" onclick="openStockistModal()">
+                        <i class="fas fa-plus"></i> Add Stockist
+                    </button>
+                </div>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Code</th>
+                                <th>Stockist Name</th>
+                                <th>City</th>
+                                <th>Mobile</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="stockistsTableBody">
+                            <tr><td colspan="6" class="text-center">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Products Page -->
+            <section id="productsPage" class="content-page">
+                <div class="page-actions">
+                    <div class="search-box">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="prodSearch" placeholder="Search products...">
+                    </div>
+                    <div class="action-buttons">
+                        <button class="btn btn-secondary" onclick="openBulkUploadModal('products')">
+                            <i class="fas fa-upload"></i> Bulk Upload
+                        </button>
+                        <button class="btn btn-primary" onclick="openProductModal()">
+                            <i class="fas fa-plus"></i> Add Product
+                        </button>
+                    </div>
+                </div>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Code</th>
+                                <th>Product Name</th>
+                                <th>Category</th>
+                                <th>MRP</th>
+                                <th>PTS</th>
+                                <th>PTR</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="productsTableBody">
+                            <tr><td colspan="8" class="text-center">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Areas Page -->
+            <section id="areasPage" class="content-page">
+                <div class="page-actions">
+                    <div class="search-box">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="areaSearch" placeholder="Search areas...">
+                    </div>
+                    <button class="btn btn-primary" onclick="openAreaModal()">
+                        <i class="fas fa-plus"></i> Add Area
+                    </button>
+                </div>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Area ID</th>
+                                <th>Area Name</th>
+                                <th>City</th>
+                                <th>State</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="areasTableBody">
+                            <tr><td colspan="6" class="text-center">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Expenses Page -->
+            <section id="expensesPage" class="content-page">
+                <div class="tabs">
+                    <button class="tab active" data-tab="pendingExpenses">Pending Approval</button>
+                    <button class="tab" data-tab="allExpenses">All Expenses</button>
+                </div>
+
+                <!-- Pending Expenses Tab -->
+                <div id="pendingExpensesTab" class="tab-content active">
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Employee</th>
+                                    <th>Designation</th>
+                                    <th>Month</th>
+                                    <th>Daily Total</th>
+                                    <th>Fixed Total</th>
+                                    <th>Grand Total</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pendingExpensesBody">
+                                <tr><td colspan="7" class="text-center">Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- All Expenses Tab -->
+                <div id="allExpensesTab" class="tab-content">
+                    <div class="page-actions">
+                        <div class="filter-group">
+                            <select id="expMonthFilter">
+                                <option value="">Select Month</option>
                             </select>
-                            <button class="btn btn-secondary" onclick="showBulkTransferModal()">
-                                <i class="fas fa-exchange-alt"></i> Bulk Transfer
-                            </button>
-                        </div>
-                    </div>
-                    <div class="card">
-                        <div class="card-body">
-                            <table class="table" id="customersTable">
-                                <thead>
-                                    <tr>
-                                        <th><input type="checkbox" id="selectAllCustomers"></th>
-                                        <th>ID</th>
-                                        <th>Name</th>
-                                        <th>Specialty</th>
-                                        <th>Area</th>
-                                        <th>Mobile</th>
-                                        <th>Created By</th>
-                                        <th>Status</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="customersTableBody">
-                                    <tr><td colspan="9" class="text-center">Loading...</td></tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Stockists Page -->
-                <div id="stockistsPage" class="page">
-                    <div class="page-header">
-                        <div class="page-actions">
-                            <input type="text" id="stockistSearch" class="search-input" placeholder="Search stockists...">
-                            <button class="btn btn-primary" onclick="showStockistModal()">
-                                <i class="fas fa-plus"></i> Add Stockist
-                            </button>
-                        </div>
-                    </div>
-                    <div class="card">
-                        <div class="card-body">
-                            <table class="table" id="stockistsTable">
-                                <thead>
-                                    <tr>
-                                        <th>ID</th>
-                                        <th>Name</th>
-                                        <th>Code</th>
-                                        <th>City</th>
-                                        <th>Mobile</th>
-                                        <th>Status</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="stockistsTableBody">
-                                    <tr><td colspan="7" class="text-center">Loading...</td></tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Products Page -->
-                <div id="productsPage" class="page">
-                    <div class="page-header">
-                        <div class="page-actions">
-                            <input type="text" id="productSearch" class="search-input" placeholder="Search products...">
-                            <button class="btn btn-primary" onclick="showProductModal()">
-                                <i class="fas fa-plus"></i> Add Product
-                            </button>
-                            <button class="btn btn-secondary" onclick="showBulkUploadModal('product')">
-                                <i class="fas fa-upload"></i> Bulk Upload
-                            </button>
-                        </div>
-                    </div>
-                    <div class="card">
-                        <div class="card-body">
-                            <table class="table" id="productsTable">
-                                <thead>
-                                    <tr>
-                                        <th>ID</th>
-                                        <th>Name</th>
-                                        <th>Code</th>
-                                        <th>Category</th>
-                                        <th>MRP</th>
-                                        <th>PTS</th>
-                                        <th>PTR</th>
-                                        <th>Status</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="productsTableBody">
-                                    <tr><td colspan="9" class="text-center">Loading...</td></tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Areas Page -->
-                <div id="areasPage" class="page">
-                    <div class="page-header">
-                        <div class="page-actions">
-                            <input type="text" id="areaSearch" class="search-input" placeholder="Search areas...">
-                            <button class="btn btn-primary" onclick="showAreaModal()">
-                                <i class="fas fa-plus"></i> Add Area
-                            </button>
-                        </div>
-                    </div>
-                    <div class="card">
-                        <div class="card-body">
-                            <table class="table" id="areasTable">
-                                <thead>
-                                    <tr>
-                                        <th>ID</th>
-                                        <th>Area Name</th>
-                                        <th>City</th>
-                                        <th>State</th>
-                                        <th>Status</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="areasTableBody">
-                                    <tr><td colspan="6" class="text-center">Loading...</td></tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Expenses Page -->
-                <div id="expensesPage" class="page">
-                    <div class="page-header">
-                        <div class="page-actions">
-                            <select id="expenseMonthFilter" class="select-input">
-                                <option value="1">January</option>
-                                <option value="2">February</option>
-                                <option value="3">March</option>
-                                <option value="4">April</option>
-                                <option value="5">May</option>
-                                <option value="6">June</option>
-                                <option value="7">July</option>
-                                <option value="8">August</option>
-                                <option value="9">September</option>
-                                <option value="10">October</option>
-                                <option value="11">November</option>
-                                <option value="12">December</option>
-                            </select>
-                            <select id="expenseYearFilter" class="select-input">
-                                <option value="2025">2025</option>
-                                <option value="2024">2024</option>
-                            </select>
-                            <select id="expenseStatusFilter" class="select-input">
+                            <select id="expStatusFilter">
                                 <option value="all">All Status</option>
                                 <option value="Submitted">Submitted</option>
                                 <option value="Approved">Approved</option>
                                 <option value="Rejected">Rejected</option>
                                 <option value="Countered">Countered</option>
                             </select>
-                            <button class="btn btn-secondary" onclick="loadExpenses()">
-                                <i class="fas fa-sync"></i> Refresh
-                            </button>
                         </div>
                     </div>
-                    <div class="card">
-                        <div class="card-body">
-                            <table class="table" id="expensesTable">
-                                <thead>
-                                    <tr>
-                                        <th>ID</th>
-                                        <th>Employee</th>
-                                        <th>Month/Year</th>
-                                        <th>Daily Total</th>
-                                        <th>Monthly Total</th>
-                                        <th>Grand Total</th>
-                                        <th>Status</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="expensesTableBody">
-                                    <tr><td colspan="8" class="text-center">Loading...</td></tr>
-                                </tbody>
-                            </table>
-                        </div>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Employee</th>
+                                    <th>Month</th>
+                                    <th>Daily Total</th>
+                                    <th>Fixed Total</th>
+                                    <th>Grand Total</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="allExpensesBody">
+                                <tr><td colspan="7" class="text-center">Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Hierarchy Page -->
+            <section id="hierarchyPage" class="content-page">
+                <div class="tabs">
+                    <button class="tab active" data-tab="hierarchyView">Hierarchy View</button>
+                    <button class="tab" data-tab="areaMapping">Area Mapping</button>
+                </div>
+
+                <!-- Hierarchy View Tab -->
+                <div id="hierarchyViewTab" class="tab-content active">
+                    <div class="hierarchy-container" id="hierarchyTree">
+                        <p class="text-muted">Loading hierarchy...</p>
                     </div>
                 </div>
 
-                <!-- Approvals Page -->
-                <div id="approvalsPage" class="page">
-                    <div class="tabs">
-                        <button class="tab-btn active" data-tab="pendingCustomers">Pending Customers</button>
-                        <button class="tab-btn" data-tab="pendingExpenses">Pending Expenses</button>
-                        <button class="tab-btn" data-tab="masterRequests">Master Requests</button>
-                    </div>
-                    
-                    <div id="pendingCustomersTab" class="tab-content active">
-                        <div class="card">
-                            <div class="card-body">
-                                <table class="table">
-                                    <thead>
-                                        <tr>
-                                            <th>Customer Name</th>
-                                            <th>Specialty</th>
-                                            <th>Area</th>
-                                            <th>Mobile</th>
-                                            <th>Added By</th>
-                                            <th>Date</th>
-                                            <th>Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="pendingCustomersTableBody">
-                                        <tr><td colspan="7" class="text-center">Loading...</td></tr>
-                                    </tbody>
-                                </table>
+                <!-- Area Mapping Tab -->
+                <div id="areaMappingTab" class="tab-content">
+                    <div class="mapping-container">
+                        <div class="form-group">
+                            <label>Select Employee</label>
+                            <select id="mappingEmployee" onchange="loadEmployeeAreas()"></select>
+                        </div>
+                        <div class="form-group">
+                            <label>Assigned Areas</label>
+                            <div class="checkbox-list" id="mappingAreasList">
+                                <p class="text-muted">Select employee first</p>
                             </div>
                         </div>
-                    </div>
-
-                    <div id="pendingExpensesTab" class="tab-content">
-                        <div class="card">
-                            <div class="card-body">
-                                <table class="table">
-                                    <thead>
-                                        <tr>
-                                            <th>Employee</th>
-                                            <th>Designation</th>
-                                            <th>Month/Year</th>
-                                            <th>Total Amount</th>
-                                            <th>Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="pendingExpensesTableBody">
-                                        <tr><td colspan="5" class="text-center">Loading...</td></tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div id="masterRequestsTab" class="tab-content">
-                        <div class="card">
-                            <div class="card-body">
-                                <table class="table">
-                                    <thead>
-                                        <tr>
-                                            <th>Request Type</th>
-                                            <th>Customer</th>
-                                            <th>Field</th>
-                                            <th>Old Value</th>
-                                            <th>New Value</th>
-                                            <th>Requested By</th>
-                                            <th>Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="masterRequestsTableBody">
-                                        <tr><td colspan="7" class="text-center">Loading...</td></tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
+                        <button class="btn btn-primary" onclick="saveAreaMapping()">
+                            <i class="fas fa-save"></i> Save Mapping
+                        </button>
                     </div>
                 </div>
+            </section>
 
-                <!-- Reports Page -->
-                <div id="reportsPage" class="page">
-                    <div class="page-header">
-                        <div class="page-actions">
-                            <input type="date" id="reportStartDate" class="date-input">
-                            <input type="date" id="reportEndDate" class="date-input">
-                            <select id="reportType" class="select-input">
-                                <option value="employee_performance">Employee Performance</option>
-                                <option value="daily_summary">Daily Summary</option>
-                                <option value="area_wise">Area Wise</option>
-                                <option value="product_wise">Product Wise</option>
-                                <option value="stockist_wise">Stockist Wise</option>
-                            </select>
-                            <button class="btn btn-primary" onclick="generateReport()">
-                                <i class="fas fa-chart-bar"></i> Generate
-                            </button>
-                            <button class="btn btn-secondary" onclick="exportReport('excel')">
-                                <i class="fas fa-file-excel"></i> Excel
-                            </button>
-                            <button class="btn btn-secondary" onclick="exportReport('pdf')">
-                                <i class="fas fa-file-pdf"></i> PDF
-                            </button>
-                        </div>
-                    </div>
-                    <div class="card">
-                        <div class="card-body">
-                            <div id="reportContent">
-                                <p class="text-center text-muted">Select date range and report type, then click Generate</p>
-                            </div>
-                        </div>
-                    </div>
+            <!-- Announcements Page -->
+            <section id="announcementsPage" class="content-page">
+                <div class="page-actions">
+                    <button class="btn btn-primary" onclick="openAnnouncementModal()">
+                        <i class="fas fa-plus"></i> New Announcement
+                    </button>
                 </div>
-
-                <!-- Announcements Page -->
-                <div id="announcementsPage" class="page">
-                    <div class="page-header">
-                        <div class="page-actions">
-                            <button class="btn btn-primary" onclick="showAnnouncementModal()">
-                                <i class="fas fa-plus"></i> New Announcement
-                            </button>
-                        </div>
-                    </div>
-                    <div class="card">
-                        <div class="card-body">
-                            <table class="table" id="announcementsTable">
-                                <thead>
-                                    <tr>
-                                        <th>Title</th>
-                                        <th>Priority</th>
-                                        <th>Start Date</th>
-                                        <th>End Date</th>
-                                        <th>Created At</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="announcementsTableBody">
-                                    <tr><td colspan="6" class="text-center">Loading...</td></tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
+                <div class="announcements-list" id="announcementsList">
+                    <p class="text-muted">Loading...</p>
                 </div>
+            </section>
 
-                <!-- Hierarchy Page -->
-                <div id="hierarchyPage" class="page">
-                    <div class="page-header">
-                        <div class="page-actions">
-                            <button class="btn btn-secondary" onclick="loadHierarchy()">
-                                <i class="fas fa-sync"></i> Refresh
-                            </button>
-                        </div>
+            <!-- Reports Page -->
+            <section id="reportsPage" class="content-page">
+                <div class="report-filters">
+                    <div class="form-group">
+                        <label>Report Type</label>
+                        <select id="reportType">
+                            <option value="daily_summary">Daily Summary</option>
+                            <option value="employee_performance">Employee Performance</option>
+                            <option value="area_wise">Area Wise</option>
+                            <option value="product_wise">Product Wise</option>
+                            <option value="stockist_wise">Stockist Wise</option>
+                        </select>
                     </div>
-                    <div class="hierarchy-container">
-                        <div class="card">
-                            <div class="card-header">
-                                <h3>Employee Hierarchy</h3>
-                            </div>
-                            <div class="card-body">
-                                <table class="table" id="hierarchyTable">
-                                    <thead>
-                                        <tr>
-                                            <th>Employee</th>
-                                            <th>Designation</th>
-                                            <th>Reporting To</th>
-                                            <th>Action</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="hierarchyTableBody">
-                                        <tr><td colspan="4" class="text-center">Loading...</td></tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                        <div class="card">
-                            <div class="card-header">
-                                <h3>Area Mapping</h3>
-                            </div>
-                            <div class="card-body">
-                                <table class="table" id="areaMappingTable">
-                                    <thead>
-                                        <tr>
-                                            <th>Employee</th>
-                                            <th>Mapped Areas</th>
-                                            <th>Action</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="areaMappingTableBody">
-                                        <tr><td colspan="3" class="text-center">Loading...</td></tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
+                    <div class="form-group">
+                        <label>Start Date</label>
+                        <input type="date" id="reportStartDate">
                     </div>
+                    <div class="form-group">
+                        <label>End Date</label>
+                        <input type="date" id="reportEndDate">
+                    </div>
+                    <button class="btn btn-primary" onclick="generateReport()">
+                        <i class="fas fa-chart-bar"></i> Generate Report
+                    </button>
+                    <button class="btn btn-secondary" onclick="exportReport('excel')">
+                        <i class="fas fa-file-excel"></i> Export Excel
+                    </button>
+                    <button class="btn btn-secondary" onclick="exportReport('pdf')">
+                        <i class="fas fa-file-pdf"></i> Export PDF
+                    </button>
                 </div>
+                <div class="report-content" id="reportContent">
+                    <p class="text-muted text-center">Select filters and generate report</p>
+                </div>
+            </section>
 
-                <!-- Settings Page -->
-                <div id="settingsPage" class="page">
+            <!-- Settings Page -->
+            <section id="settingsPage" class="content-page">
+                <div class="settings-container">
                     <div class="card">
                         <div class="card-header">
-                            <h3>System Settings</h3>
+                            <h3><i class="fas fa-sliders-h"></i> App Settings</h3>
                         </div>
                         <div class="card-body">
-                            <form id="settingsForm">
-                                <div class="settings-grid">
-                                    <div class="form-group">
-                                        <label>Default Radius (meters)</label>
-                                        <input type="number" id="setting_default_radius" class="form-input">
-                                    </div>
-                                    <div class="form-group">
-                                        <label>Max Radius (meters)</label>
-                                        <input type="number" id="setting_max_radius" class="form-input">
-                                    </div>
-                                    <div class="form-group">
-                                        <label>HQ Allowance (₹)</label>
-                                        <input type="number" id="setting_hq_allowance" class="form-input">
-                                    </div>
-                                    <div class="form-group">
-                                        <label>Ex-HQ Allowance (₹)</label>
-                                        <input type="number" id="setting_ex_hq_allowance" class="form-input">
-                                    </div>
-                                    <div class="form-group">
-                                        <label>Outstation Allowance (₹)</label>
-                                        <input type="number" id="setting_outstation_allowance" class="form-input">
-                                    </div>
-                                    <div class="form-group">
-                                        <label>KM Rate (₹)</label>
-                                        <input type="number" id="setting_km_rate" class="form-input">
-                                    </div>
-                                    <div class="form-group">
-                                        <label>Mobile Allowance (₹)</label>
-                                        <input type="number" id="setting_mobile_allowance" class="form-input">
-                                    </div>
-                                    <div class="form-group">
-                                        <label>Photo Max Size (KB)</label>
-                                        <input type="number" id="setting_photo_max_size" class="form-input">
-                                    </div>
+                            <div class="settings-form" id="settingsForm">
+                                <div class="form-group">
+                                    <label>Default Radius (meters)</label>
+                                    <input type="number" id="setting_default_radius" value="300">
                                 </div>
-                                <button type="submit" class="btn btn-primary">
+                                <div class="form-group">
+                                    <label>Max Radius (meters)</label>
+                                    <input type="number" id="setting_max_radius" value="500">
+                                </div>
+                                <div class="form-group">
+                                    <label>HQ Allowance (₹)</label>
+                                    <input type="number" id="setting_hq_allowance" value="200">
+                                </div>
+                                <div class="form-group">
+                                    <label>Ex-HQ Allowance (₹)</label>
+                                    <input type="number" id="setting_ex_hq_allowance" value="400">
+                                </div>
+                                <div class="form-group">
+                                    <label>Outstation Allowance (₹)</label>
+                                    <input type="number" id="setting_outstation_allowance" value="800">
+                                </div>
+                                <div class="form-group">
+                                    <label>KM Rate (₹/km)</label>
+                                    <input type="number" id="setting_km_rate" value="5">
+                                </div>
+                                <div class="form-group">
+                                    <label>Mobile Allowance (₹/month)</label>
+                                    <input type="number" id="setting_mobile_allowance" value="500">
+                                </div>
+                                <div class="form-group">
+                                    <label>Max Photo Size (KB)</label>
+                                    <input type="number" id="setting_photo_max_size" value="100">
+                                </div>
+                                <button class="btn btn-primary" onclick="saveSettings()">
                                     <i class="fas fa-save"></i> Save Settings
                                 </button>
-                            </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-database"></i> Data Management</h3>
+                        </div>
+                        <div class="card-body">
+                            <button class="btn btn-secondary" onclick="createBackup()">
+                                <i class="fas fa-download"></i> Create Backup
+                            </button>
                         </div>
                     </div>
                 </div>
-            </div>
+            </section>
         </main>
     </div>
 
     <!-- Modals -->
-    <div id="modalOverlay" class="modal-overlay hidden">
-        <div id="modalContainer" class="modal">
+    <!-- Employee Modal -->
+    <div id="employeeModal" class="modal">
+        <div class="modal-content">
             <div class="modal-header">
-                <h3 id="modalTitle">Modal</h3>
-                <button class="modal-close" onclick="closeModal()">&times;</button>
+                <h3 id="employeeModalTitle">Add Employee</h3>
+                <button class="modal-close" onclick="closeModal('employeeModal')">&times;</button>
             </div>
-            <div class="modal-body" id="modalBody">
-                <!-- Dynamic content -->
+            <form id="employeeForm">
+                <input type="hidden" id="empId">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Name *</label>
+                        <input type="text" id="empName" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Mobile *</label>
+                        <input type="tel" id="empMobile" pattern="[0-9]{10}" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Designation *</label>
+                        <select id="empDesignation" required>
+                            <option value="">Select</option>
+                            <option value="SR">SR</option>
+                            <option value="SO">SO</option>
+                            <option value="DASM">DASM</option>
+                            <option value="ASM">ASM</option>
+                            <option value="SASM">SASM</option>
+                            <option value="RSM">RSM</option>
+                            <option value="ZM">ZM</option>
+                            <option value="SM">SM</option>
+                            <option value="GM">GM</option>
+                            <option value="VP">VP</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Reporting To</label>
+                        <select id="empReportingTo"></select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="empEmail">
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="text" id="empPassword" placeholder="Default: 123456">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Address</label>
+                    <textarea id="empAddress" rows="2"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Emergency Contact</label>
+                    <input type="tel" id="empEmergency">
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('employeeModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Stockist Modal -->
+    <div id="stockistModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="stockistModalTitle">Add Stockist</h3>
+                <button class="modal-close" onclick="closeModal('stockistModal')">&times;</button>
+            </div>
+            <form id="stockistForm">
+                <input type="hidden" id="stockistId">
+                <div class="form-group">
+                    <label>Stockist Name *</label>
+                    <input type="text" id="stockistName" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>City *</label>
+                        <input type="text" id="stockistCity" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Mobile *</label>
+                        <input type="tel" id="stockistMobile" pattern="[0-9]{10}" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Address</label>
+                    <textarea id="stockistAddress" rows="2"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="stockistEmail">
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('stockistModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Product Modal -->
+    <div id="productModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="productModalTitle">Add Product</h3>
+                <button class="modal-close" onclick="closeModal('productModal')">&times;</button>
+            </div>
+            <form id="productForm">
+                <input type="hidden" id="productId">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Product Name *</label>
+                        <input type="text" id="productName" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Product Code *</label>
+                        <input type="text" id="productCode" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Category</label>
+                        <input type="text" id="productCategory">
+                    </div>
+                    <div class="form-group">
+                        <label>Unit</label>
+                        <input type="text" id="productUnit" value="Pcs">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>MRP (₹)</label>
+                        <input type="number" id="productMRP" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label>PTS (₹)</label>
+                        <input type="number" id="productPTS" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label>PTR (₹)</label>
+                        <input type="number" id="productPTR" step="0.01">
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('productModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Area Modal -->
+    <div id="areaModal" class="modal">
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h3 id="areaModalTitle">Add Area</h3>
+                <button class="modal-close" onclick="closeModal('areaModal')">&times;</button>
+            </div>
+            <form id="areaForm">
+                <input type="hidden" id="areaId">
+                <div class="form-group">
+                    <label>Area Name *</label>
+                    <input type="text" id="areaName" required>
+                </div>
+                <div class="form-group">
+                    <label>City *</label>
+                    <input type="text" id="areaCity" required>
+                </div>
+                <div class="form-group">
+                    <label>State *</label>
+                    <input type="text" id="areaState" required>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('areaModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Announcement Modal -->
+    <div id="announcementModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="announcementModalTitle">New Announcement</h3>
+                <button class="modal-close" onclick="closeModal('announcementModal')">&times;</button>
+            </div>
+            <form id="announcementForm">
+                <input type="hidden" id="announcementId">
+                <div class="form-group">
+                    <label>Title *</label>
+                    <input type="text" id="announcementTitle" required>
+                </div>
+                <div class="form-group">
+                    <label>Message *</label>
+                    <textarea id="announcementMessage" rows="4" required></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Priority</label>
+                        <select id="announcementPriority">
+                            <option value="Normal">Normal</option>
+                            <option value="Important">Important</option>
+                            <option value="Urgent">Urgent</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Start Date *</label>
+                        <input type="date" id="announcementStart" required>
+                    </div>
+                    <div class="form-group">
+                        <label>End Date *</label>
+                        <input type="date" id="announcementEnd" required>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('announcementModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Expense Detail Modal -->
+    <div id="expenseDetailModal" class="modal">
+        <div class="modal-content modal-lg">
+            <div class="modal-header">
+                <h3>Expense Details</h3>
+                <button class="modal-close" onclick="closeModal('expenseDetailModal')">&times;</button>
+            </div>
+            <div class="modal-body" id="expenseDetailContent">
+                <p class="text-muted">Loading...</p>
+            </div>
+            <div class="modal-footer" id="expenseDetailActions">
+                <!-- Dynamic buttons -->
             </div>
         </div>
     </div>
 
-    <!-- Toast -->
+    <!-- Bulk Upload Modal -->
+    <div id="bulkUploadModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="bulkUploadTitle">Bulk Upload</h3>
+                <button class="modal-close" onclick="closeModal('bulkUploadModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="upload-instructions">
+                    <p>Upload CSV/Excel file with the following format:</p>
+                    <div id="bulkUploadFormat" class="code-block"></div>
+                    <button class="btn btn-secondary btn-sm" id="downloadTemplateBtn">
+                        <i class="fas fa-download"></i> Download Template
+                    </button>
+                </div>
+                <div class="form-group">
+                    <label>Select File</label>
+                    <input type="file" id="bulkUploadFile" accept=".csv,.xlsx">
+                </div>
+                <div id="bulkUploadPreview" class="upload-preview hidden"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('bulkUploadModal')">Cancel</button>
+                <button class="btn btn-primary" onclick="processBulkUpload()">Upload</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Counter Expense Modal -->
+    <div id="counterModal" class="modal">
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h3>Counter Expense</h3>
+                <button class="modal-close" onclick="closeModal('counterModal')">&times;</button>
+            </div>
+            <form id="counterForm">
+                <input type="hidden" id="counterExpenseId">
+                <div class="form-group">
+                    <label>Original Amount</label>
+                    <input type="text" id="counterOriginalAmt" readonly>
+                </div>
+                <div class="form-group">
+                    <label>New Amount *</label>
+                    <input type="number" id="counterNewAmt" step="0.01" required>
+                </div>
+                <div class="form-group">
+                    <label>Remarks</label>
+                    <textarea id="counterRemarks" rows="2"></textarea>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('counterModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Submit Counter</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
     <div id="toast" class="toast hidden">
         <span id="toastMessage"></span>
     </div>
@@ -723,11 +951,8 @@
     <!-- Loading Overlay -->
     <div id="loadingOverlay" class="loading-overlay hidden">
         <div class="spinner"></div>
-        <p>Loading...</p>
     </div>
 
-    <script src="js/config.js"></script>
-    <script src="js/api.js"></script>
-    <script src="js/app.js"></script>
+    <script src="app.js"></script>
 </body>
 </html>
