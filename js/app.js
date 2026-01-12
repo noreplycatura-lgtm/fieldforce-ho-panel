@@ -500,41 +500,87 @@ function navigateTo(page) {
     document.getElementById('sidebar').classList.remove('open');
 }
 
-function loadPageData(page) {
+// Track which pages are already loaded
+let loadedPages = {};
+
+function loadPageData(page, forceReload = false) {
+    // If already loaded and not forcing reload, skip
+    if (loadedPages[page] && !forceReload) {
+        console.log(`[Page] ${page} already loaded, skipping...`);
+        return;
+    }
+    
+    console.log(`[Page] Loading ${page}...`);
+    
     switch(page) {
         case 'dashboard':
             loadDashboard();
+            loadedPages[page] = true;
             break;
         case 'employees':
-            loadEmployees();
+            if (allEmployees.length === 0 || forceReload) {
+                loadEmployees();
+            } else {
+                renderEmployeesTable(allEmployees);
+            }
+            loadedPages[page] = true;
             break;
         case 'customers':
-            loadPendingCustomers();
-            loadAllCustomers();
-            loadEmployeesForTransfer();
+            if (allCustomers.length === 0 || forceReload) {
+                loadPendingCustomers();
+                loadAllCustomers();
+                loadEmployeesForTransfer();
+            } else {
+                renderPendingCustomers(allCustomers.filter(c => c.status === 'Pending'));
+                renderAllCustomers(allCustomers);
+            }
+            loadedPages[page] = true;
             break;
         case 'stockists':
-            loadStockists();
+            if (allStockists.length === 0 || forceReload) {
+                loadStockists();
+            } else {
+                renderStockistsTable(allStockists);
+            }
+            loadedPages[page] = true;
             break;
         case 'products':
-            loadProducts();
+            if (allProducts.length === 0 || forceReload) {
+                loadProducts();
+            } else {
+                renderProductsTable(allProducts);
+            }
+            loadedPages[page] = true;
             break;
         case 'areas':
-            loadAreas();
+            if (allAreas.length === 0 || forceReload) {
+                loadAreas();
+            } else {
+                renderAreasTable(allAreas);
+            }
+            loadedPages[page] = true;
             break;
         case 'expenses':
             loadPendingExpenses();
+            loadedPages[page] = true;
             break;
         case 'hierarchy':
             loadHierarchy();
             loadEmployeesForMapping();
             loadAreasForMapping();
+            loadedPages[page] = true;
             break;
         case 'announcements':
-            loadAnnouncements();
+            if (allAnnouncements.length === 0 || forceReload) {
+                loadAnnouncements();
+            } else {
+                renderAnnouncements(allAnnouncements);
+            }
+            loadedPages[page] = true;
             break;
         case 'settings':
             loadSettings();
+            loadedPages[page] = true;
             break;
     }
 }
@@ -542,8 +588,10 @@ function loadPageData(page) {
 function refreshCurrentPage() {
     const activePage = document.querySelector('.nav-item.active');
     if (activePage) {
-        loadPageData(activePage.dataset.page);
-        showToast('Data refreshed');
+        const page = activePage.dataset.page;
+        loadedPages[page] = false; // Force reload
+        loadPageData(page, true);
+        showToast('Data refreshed', 'success');
     }
 }
 
@@ -794,16 +842,31 @@ function openEmployeeModal(empId = null) {
 
     if (empId) {
         title.textContent = 'Edit Employee';
-        const emp = allEmployees.find(e => e.emp_id === empId);
-        if (emp) {
-            document.getElementById('empId').value = emp.emp_id;
-            document.getElementById('empName').value = emp.emp_name || '';
-            document.getElementById('empMobile').value = emp.mobile || '';
-            document.getElementById('empDesignation').value = emp.designation || '';
-            document.getElementById('empReportingTo').value = emp.reporting_to || '';
-            document.getElementById('empEmail').value = emp.email || '';
-            document.getElementById('empAddress').value = emp.address || '';
-            document.getElementById('empEmergency').value = emp.emergency_contact || '';
+        
+        // Find employee from allEmployees array
+        let emp = allEmployees.find(e => e.emp_id === empId);
+        
+        // If not found in cache, try to get from API
+        if (!emp) {
+            console.log('Employee not in cache, fetching...');
+            showLoading();
+            apiCall('getAllEmployees').then(response => {
+                hideLoading();
+                if (response.success) {
+                    allEmployees = response.employees || [];
+                    emp = allEmployees.find(e => e.emp_id === empId);
+                    if (emp) {
+                        fillEmployeeForm(emp);
+                    } else {
+                        showToast('Employee not found', 'error');
+                    }
+                }
+            }).catch(err => {
+                hideLoading();
+                showToast('Error loading employee', 'error');
+            });
+        } else {
+            fillEmployeeForm(emp);
         }
     } else {
         title.textContent = 'Add Employee';
@@ -812,6 +875,17 @@ function openEmployeeModal(empId = null) {
     modal.classList.add('active');
 }
 
+function fillEmployeeForm(emp) {
+    document.getElementById('empId').value = emp.emp_id || '';
+    document.getElementById('empName').value = emp.emp_name || '';
+    document.getElementById('empMobile').value = emp.mobile || '';
+    document.getElementById('empDesignation').value = emp.designation || '';
+    document.getElementById('empReportingTo').value = emp.reporting_to || '';
+    document.getElementById('empEmail').value = emp.email || '';
+    document.getElementById('empAddress').value = emp.address || '';
+    document.getElementById('empEmergency').value = emp.emergency_contact || '';
+    document.getElementById('empPassword').value = ''; // Don't show password
+}
 function editEmployee(empId) {
     openEmployeeModal(empId);
 }
@@ -2450,6 +2524,7 @@ function openBulkUploadModal(type) {
     const modal = document.getElementById('bulkUploadModal');
     const title = document.getElementById('bulkUploadTitle');
     const format = document.getElementById('bulkUploadFormat');
+    const downloadBtn = document.getElementById('downloadTemplateBtn');
 
     title.textContent = `Bulk Upload ${type.charAt(0).toUpperCase() + type.slice(1)}`;
 
@@ -2459,12 +2534,16 @@ function openBulkUploadModal(type) {
         format.textContent = 'product_name, product_code, category, unit, mrp, pts, ptr';
     }
 
+    // Update download button
+    downloadBtn.onclick = function() {
+        downloadTemplate(type);
+    };
+
     document.getElementById('bulkUploadFile').value = '';
     document.getElementById('bulkUploadPreview').classList.add('hidden');
 
     modal.classList.add('active');
 }
-
 function previewBulkUpload(e) {
     const file = e.target.files[0];
     if (!file) return;
