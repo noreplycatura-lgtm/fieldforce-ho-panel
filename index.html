@@ -9,43 +9,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
-    <!-- Service Worker Registration -->
-    <script>
-        // Register Service Worker
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/service-worker.js')
-                    .then((registration) => {
-                        console.log('SW registered:', registration.scope);
-                        
-                        // Request periodic sync (if supported)
-                        if ('periodicSync' in registration) {
-                            registration.periodicSync.register('sync-data-periodic', {
-                                minInterval: 15 * 60 * 1000 // 15 minutes
-                            }).catch(err => console.log('Periodic sync not available'));
-                        }
-                    })
-                    .catch((error) => {
-                        console.log('SW registration failed:', error);
-                    });
-                
-                // Listen for sync complete messages
-                navigator.serviceWorker.addEventListener('message', (event) => {
-                    if (event.data && event.data.type === 'SYNC_COMPLETE') {
-                        console.log('Background sync completed:', event.data.timestamp);
-                        showToast('Data synced successfully', 'success');
-                        // Refresh current page data
-                        if (typeof refreshCurrentPage === 'function') {
-                            refreshCurrentPage();
-                        }
-                    }
-                });
-            });
-        }
-    </script>
-
-    <script src="js/app.js"></script>
-</body>
 <body>
     <!-- Login Page -->
     <div id="loginPage" class="page active">
@@ -304,174 +267,199 @@
                 </div>
 
                 <!-- All Customers Tab -->
-<div id="allCustomersTab" class="tab-content">
-    <div class="page-actions">
-        <div class="search-box">
-            <i class="fas fa-search"></i>
-            <input type="text" id="custSearch" placeholder="Search customers..." oninput="filterCustomers()">
-        </div>
-        <div class="filter-group">
-            <select id="custStatusFilter" onchange="filterCustomers()">
-                <option value="all">All Status</option>
-                <option value="Approved">Approved</option>
-                <option value="Pending">Pending</option>
-                <option value="Rejected">Rejected</option>
-            </select>
-        </div>
-    </div>
-    
-    <!-- Transfer Section -->
-    <div class="transfer-action-bar">
-        <div class="transfer-info">
-            <span>Selected: <strong id="selectedCustomerCount">0</strong> customer(s)</span>
-        </div>
-        <div class="transfer-controls">
-            <select id="transferTargetEmp">
-                <option value="">-- Transfer To --</option>
-            </select>
-            <button class="btn btn-primary btn-sm" onclick="transferSelectedCustomers()">
-                <i class="fas fa-exchange-alt"></i> Transfer Selected
-            </button>
-        </div>
-    </div>
-    
-    <div class="table-container">
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th style="width: 40px;">
-                        <input type="checkbox" id="selectAllCust" onchange="selectAllCustomers(this)">
-                    </th>
-                    <th>Code</th>
-                    <th>Customer Name</th>
-                    <th>Specialty</th>
-                    <th>Area</th>
-                    <th>City</th>
-                    <th>Mobile</th>
-                    <th>Status</th>
-                    <th>Created By</th>
-                </tr>
-            </thead>
-            <tbody id="allCustomersBody">
-                <tr><td colspan="9" class="text-center">Loading...</td></tr>
-            </tbody>
-        </table>
-    </div>
-</div>
+                <div id="allCustomersTab" class="tab-content">
+                    <div class="page-actions">
+                        <div class="search-box">
+                            <i class="fas fa-search"></i>
+                            <input type="text" id="custSearch" placeholder="Search customers..." oninput="filterCustomers()">
+                        </div>
+                        <div class="filter-group">
+                            <select id="custStatusFilter" onchange="filterCustomers()">
+                                <option value="all">All Status</option>
+                                <option value="Approved">Approved</option>
+                                <option value="Pending">Pending</option>
+                                <option value="Rejected">Rejected</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <!-- Transfer Section -->
+                    <div class="transfer-action-bar">
+                        <div class="transfer-info">
+                            <span>Selected: <strong id="selectedCustomerCount">0</strong> customer(s)</span>
+                        </div>
+                        <div class="transfer-controls">
+                            <select id="transferTargetEmp">
+                                <option value="">-- Transfer To --</option>
+                            </select>
+                            <button class="btn btn-primary btn-sm" onclick="transferSelectedCustomers()">
+                                <i class="fas fa-exchange-alt"></i> Transfer Selected
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 40px;">
+                                        <input type="checkbox" id="selectAllCust" onchange="selectAllCustomers(this)">
+                                    </th>
+                                    <th>Code</th>
+                                    <th>Customer Name</th>
+                                    <th>Specialty</th>
+                                    <th>Area</th>
+                                    <th>City</th>
+                                    <th>Mobile</th>
+                                    <th>Status</th>
+                                    <th>Created By</th>
+                                </tr>
+                            </thead>
+                            <tbody id="allCustomersBody">
+                                <tr><td colspan="9" class="text-center">Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
 
                 <!-- Transfer Customers Tab -->
-<div id="transferCustomersTab" class="tab-content">
-    <div class="transfer-container">
-        
-        <!-- Excel Template Method -->
-        <div class="card">
-            <div class="card-header">
-                <h3><i class="fas fa-file-excel"></i> Transfer by Excel Template</h3>
-            </div>
-            <div class="card-body">
-                
-                <!-- Step 1 -->
-                <div style="display: flex; gap: 16px; margin-bottom: 20px; align-items: flex-end; flex-wrap: wrap;">
-                    <div class="form-group" style="margin-bottom: 0;">
-                        <label>Select Employee</label>
-                        <select id="downloadEmpSelect" onchange="updateCustomerCount()" style="min-width: 200px;">
-                            <option value="">-- Select Employee --</option>
-                        </select>
-                    </div>
-                    <div class="form-group" style="margin-bottom: 0;">
-                        <label>Customers</label>
-                        <input type="text" id="empCustomerCount" value="0" readonly style="width: 80px; text-align: center; font-weight: bold;">
-                    </div>
-                    <button class="btn btn-success" onclick="downloadCustomerTemplate()">
-                        <i class="fas fa-download"></i> Download Template
-                    </button>
-                </div>
+                <div id="transferCustomersTab" class="tab-content">
+                    <div class="transfer-container">
+                        
+                        <!-- Excel Template Method -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h3><i class="fas fa-file-excel"></i> Transfer by Excel Template</h3>
+                            </div>
+                            <div class="card-body">
+                                
+                                <!-- Step 1: Download Template -->
+                                <div class="transfer-step">
+                                    <div class="step-number">1</div>
+                                    <div class="step-content">
+                                        <h4>Download Customer Template</h4>
+                                        <div style="display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap;">
+                                            <div class="form-group" style="margin-bottom: 0;">
+                                                <label>Select Employee</label>
+                                                <select id="downloadEmpSelect" onchange="updateCustomerCount()" style="min-width: 200px;">
+                                                    <option value="">-- Select Employee --</option>
+                                                </select>
+                                            </div>
+                                            <div class="form-group" style="margin-bottom: 0;">
+                                                <label>Total Customers</label>
+                                                <input type="text" id="empCustomerCount" value="0" readonly class="count-display" style="width: 80px; text-align: center;">
+                                            </div>
+                                            <button class="btn btn-success" onclick="downloadCustomerTemplate()">
+                                                <i class="fas fa-download"></i> Download Template
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
 
-                <!-- Instructions -->
-                <div style="background: #f8f9fa; padding: 14px; border-radius: 6px; margin-bottom: 20px;">
-                    <p style="font-size: 12px; margin-bottom: 8px;"><strong>How to use:</strong></p>
-                    <ol style="font-size: 11px; margin-left: 16px; color: #666;">
-                        <li>Select employee and download template</li>
-                        <li>Open CSV file in Excel</li>
-                        <li>Fill <strong>new_emp_id</strong> column with target employee code</li>
-                        <li>Leave blank to skip that customer</li>
-                        <li>Save and upload below</li>
-                    </ol>
-                </div>
+                                <!-- Step 2: Instructions -->
+                                <div class="transfer-step">
+                                    <div class="step-number">2</div>
+                                    <div class="step-content">
+                                        <h4>Edit Template in Excel</h4>
+                                        <div class="instruction-box">
+                                            <p><strong>Instructions:</strong></p>
+                                            <ol style="font-size: 12px; margin-left: 16px; color: #666;">
+                                                <li>Open the downloaded CSV file in Excel</li>
+                                                <li>Find the <strong>new_emp_id</strong> column (last column)</li>
+                                                <li>Enter the new employee's ID for customers you want to transfer</li>
+                                                <li>Leave blank for customers you don't want to transfer</li>
+                                                <li>Save the file as CSV</li>
+                                            </ol>
+                                            <div class="code-block">customer_id,customer_name,specialty,mobile,current_emp_id,current_emp_name,new_emp_id
+CUST001,Dr. Sharma,Cardiologist,9876543210,EMP001,Rahul Kumar,EMP002
+CUST002,Dr. Verma,Physician,9876543211,EMP001,Rahul Kumar,
+CUST003,Dr. Singh,Orthopedic,9876543212,EMP001,Rahul Kumar,EMP003</div>
+                                        </div>
+                                    </div>
+                                </div>
 
-                <!-- Upload -->
-                <div class="form-group">
-                    <label>Upload Updated File</label>
-                    <input type="file" id="transferUploadFile" accept=".csv" onchange="previewTransferFile()">
-                </div>
-                
-                <div id="transferPreview" class="hidden" style="background: #f8f9fa; padding: 14px; border-radius: 6px; margin: 14px 0; max-height: 200px; overflow: auto;"></div>
-                
-                <button class="btn btn-primary" onclick="processTransferUpload()" id="uploadTransferBtn" disabled>
-                    <i class="fas fa-upload"></i> Upload & Transfer
-                </button>
-                
-            </div>
-        </div>
+                                <!-- Step 3: Upload -->
+                                <div class="transfer-step">
+                                    <div class="step-number">3</div>
+                                    <div class="step-content">
+                                        <h4>Upload Updated File</h4>
+                                        <div class="form-group">
+                                            <input type="file" id="transferUploadFile" accept=".csv" onchange="previewTransferFile()">
+                                        </div>
+                                        
+                                        <div id="transferPreview" class="hidden"></div>
+                                        
+                                        <button class="btn btn-primary" onclick="processTransferUpload()" id="uploadTransferBtn" disabled>
+                                            <i class="fas fa-upload"></i> Upload & Transfer Customers
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                            </div>
+                        </div>
 
-        <!-- Quick Manual Transfer -->
-        <div class="card" style="margin-top: 20px;">
-            <div class="card-header">
-                <h3><i class="fas fa-exchange-alt"></i> Quick Manual Transfer</h3>
-            </div>
-            <div class="card-body">
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>From Employee</label>
-                        <select id="transferFromEmp" onchange="loadTransferCustomers()"></select>
+                        <!-- Quick Manual Transfer -->
+                        <div class="card" style="margin-top: 20px;">
+                            <div class="card-header">
+                                <h3><i class="fas fa-exchange-alt"></i> Quick Manual Transfer</h3>
+                            </div>
+                            <div class="card-body">
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>From Employee</label>
+                                        <select id="transferFromEmp" onchange="loadTransferCustomers()">
+                                            <option value="">-- Select Employee --</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>To Employee</label>
+                                        <select id="transferToEmp">
+                                            <option value="">-- Select Employee --</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label>Select Customers to Transfer</label>
+                                    <div class="checkbox-list" id="transferCustomersList">
+                                        <p class="text-muted">Select "From Employee" first</p>
+                                    </div>
+                                </div>
+                                <button class="btn btn-primary" onclick="bulkTransferCustomers()">
+                                    <i class="fas fa-exchange-alt"></i> Transfer Selected Customers
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Employee Reference -->
+                        <div class="card" style="margin-top: 20px;">
+                            <div class="card-header">
+                                <h3><i class="fas fa-users"></i> Employee Codes Reference</h3>
+                            </div>
+                            <div class="card-body">
+                                <button class="btn btn-secondary btn-sm" onclick="downloadEmployeeList()" style="margin-bottom: 10px;">
+                                    <i class="fas fa-download"></i> Download Employee List
+                                </button>
+                                <div class="table-container" style="max-height: 200px; overflow-y: auto;">
+                                    <table class="data-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Emp ID</th>
+                                                <th>Name</th>
+                                                <th>Designation</th>
+                                                <th>Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="empReferenceBody">
+                                            <tr><td colspan="4" class="text-center">Loading...</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
                     </div>
-                    <div class="form-group">
-                        <label>To Employee</label>
-                        <select id="transferToEmp"></select>
-                    </div>
                 </div>
-                <div class="form-group">
-                    <label>Select Customers</label>
-                    <div class="checkbox-list" id="transferCustomersList" style="max-height: 200px; overflow-y: auto; border: 1px solid #ddd; border-radius: 6px; padding: 10px;">
-                        <p class="text-muted">Select "From Employee" first</p>
-                    </div>
-                </div>
-                <button class="btn btn-primary" onclick="bulkTransferCustomers()">
-                    <i class="fas fa-exchange-alt"></i> Transfer Selected
-                </button>
-            </div>
-        </div>
-
-        <!-- Employee Reference -->
-        <div class="card" style="margin-top: 20px;">
-            <div class="card-header">
-                <h3><i class="fas fa-users"></i> Employee Codes Reference</h3>
-            </div>
-            <div class="card-body">
-                <button class="btn btn-secondary btn-sm" onclick="downloadEmployeeList()" style="margin-bottom: 10px;">
-                    <i class="fas fa-download"></i> Download Employee List
-                </button>
-                <div class="table-container" style="max-height: 200px; overflow-y: auto;">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>Emp ID</th>
-                                <th>Name</th>
-                                <th>Designation</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody id="empReferenceBody">
-                            <tr><td colspan="4" class="text-center">Loading...</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-    </div>
-</div>
-</section>
+            </section>
 
             <!-- Stockists Page -->
             <section id="stockistsPage" class="content-page">
@@ -605,6 +593,18 @@
                         <div class="filter-group">
                             <select id="expMonthFilter">
                                 <option value="">Select Month</option>
+                                <option value="1">January</option>
+                                <option value="2">February</option>
+                                <option value="3">March</option>
+                                <option value="4">April</option>
+                                <option value="5">May</option>
+                                <option value="6">June</option>
+                                <option value="7">July</option>
+                                <option value="8">August</option>
+                                <option value="9">September</option>
+                                <option value="10">October</option>
+                                <option value="11">November</option>
+                                <option value="12">December</option>
                             </select>
                             <select id="expStatusFilter">
                                 <option value="all">All Status</option>
@@ -613,6 +613,9 @@
                                 <option value="Rejected">Rejected</option>
                                 <option value="Countered">Countered</option>
                             </select>
+                            <button class="btn btn-primary btn-sm" onclick="loadAllExpenses()">
+                                <i class="fas fa-filter"></i> Filter
+                            </button>
                         </div>
                     </div>
                     <div class="table-container">
@@ -629,7 +632,7 @@
                                 </tr>
                             </thead>
                             <tbody id="allExpensesBody">
-                                <tr><td colspan="7" class="text-center">Loading...</td></tr>
+                                <tr><td colspan="7" class="text-center">Select filters and click Filter</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -655,7 +658,9 @@
                     <div class="mapping-container">
                         <div class="form-group">
                             <label>Select Employee</label>
-                            <select id="mappingEmployee" onchange="loadEmployeeAreas()"></select>
+                            <select id="mappingEmployee" onchange="loadEmployeeAreas()">
+                                <option value="">-- Select Employee --</option>
+                            </select>
                         </div>
                         <div class="form-group">
                             <label>Assigned Areas</label>
@@ -774,6 +779,9 @@
                             <button class="btn btn-secondary" onclick="createBackup()">
                                 <i class="fas fa-download"></i> Create Backup
                             </button>
+                            <button class="btn btn-secondary" onclick="clearAllCache()" style="margin-left: 10px;">
+                                <i class="fas fa-broom"></i> Clear Cache
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -781,7 +789,10 @@
         </main>
     </div>
 
-    <!-- Modals -->
+    <!-- ============================================ -->
+    <!-- MODALS -->
+    <!-- ============================================ -->
+
     <!-- Employee Modal -->
     <div id="employeeModal" class="modal">
         <div class="modal-content">
@@ -820,7 +831,9 @@
                     </div>
                     <div class="form-group">
                         <label>Reporting To</label>
-                        <select id="empReportingTo"></select>
+                        <select id="empReportingTo">
+                            <option value="">None</option>
+                        </select>
                     </div>
                 </div>
                 <div class="form-row">
@@ -1040,11 +1053,11 @@
                 <div class="upload-instructions">
                     <p>Upload CSV/Excel file with the following format:</p>
                     <div id="bulkUploadFormat" class="code-block"></div>
-                    <button class="btn btn-secondary btn-sm" id="downloadTemplateBtn">
+                    <button class="btn btn-secondary btn-sm" id="downloadTemplateBtn" style="margin-top: 10px;">
                         <i class="fas fa-download"></i> Download Template
                     </button>
                 </div>
-                <div class="form-group">
+                <div class="form-group" style="margin-top: 16px;">
                     <label>Select File</label>
                     <input type="file" id="bulkUploadFile" accept=".csv,.xlsx">
                 </div>
@@ -1052,7 +1065,9 @@
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" onclick="closeModal('bulkUploadModal')">Cancel</button>
-                <button class="btn btn-primary" onclick="processBulkUpload()">Upload</button>
+                <button class="btn btn-primary" onclick="processBulkUpload()">
+                    <i class="fas fa-upload"></i> Upload
+                </button>
             </div>
         </div>
     </div>
@@ -1068,7 +1083,7 @@
                 <input type="hidden" id="counterExpenseId">
                 <div class="form-group">
                     <label>Original Amount</label>
-                    <input type="text" id="counterOriginalAmt" readonly>
+                    <input type="text" id="counterOriginalAmt" readonly class="count-display">
                 </div>
                 <div class="form-group">
                     <label>New Amount *</label>
@@ -1076,7 +1091,7 @@
                 </div>
                 <div class="form-group">
                     <label>Remarks</label>
-                    <textarea id="counterRemarks" rows="2"></textarea>
+                    <textarea id="counterRemarks" rows="2" placeholder="Reason for counter..."></textarea>
                 </div>
                 <div class="form-actions">
                     <button type="button" class="btn btn-secondary" onclick="closeModal('counterModal')">Cancel</button>
@@ -1096,6 +1111,31 @@
         <div class="spinner"></div>
     </div>
 
+    <!-- Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then((registration) => {
+                        console.log('SW registered:', registration.scope);
+                    })
+                    .catch((error) => {
+                        console.log('SW registration failed:', error);
+                    });
+                
+                navigator.serviceWorker.addEventListener('message', (event) => {
+                    if (event.data && event.data.type === 'SYNC_COMPLETE') {
+                        console.log('Background sync completed:', event.data.timestamp);
+                        if (typeof refreshCurrentPage === 'function') {
+                            refreshCurrentPage();
+                        }
+                    }
+                });
+            });
+        }
+    </script>
+
+    <!-- Main Application Script -->
     <script src="js/app.js"></script>
 </body>
 </html>
