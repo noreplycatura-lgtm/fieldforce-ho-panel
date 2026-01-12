@@ -1412,3 +1412,139 @@ body {
 .data-table tbody tr:has(input[type="checkbox"]:checked) {
     background: rgba(79, 70, 229, 0.05);
 }
+/* ============================================
+   CUSTOMER TRANSFER STYLES
+   ============================================ */
+
+.transfer-container {
+    max-width: 900px;
+}
+
+.transfer-step {
+    display: flex;
+    gap: 16px;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--gray-200);
+}
+
+.transfer-step:last-child {
+    border-bottom: none;
+}
+
+.step-number {
+    width: 32px;
+    height: 32px;
+    background: var(--primary);
+    color: var(--white);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: var(--font-sm);
+    flex-shrink: 0;
+}
+
+.step-content {
+    flex: 1;
+}
+
+.step-content h4 {
+    font-size: var(--font-sm);
+    font-weight: 600;
+    color: var(--gray-700);
+    margin-bottom: 12px;
+}
+
+.instruction-box {
+    background: var(--gray-50);
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius);
+    padding: 14px;
+}
+
+.instruction-box p {
+    font-size: var(--font-sm);
+    margin-bottom: 8px;
+}
+
+.instruction-box .code-block {
+    background: var(--gray-800);
+    color: var(--gray-100);
+    padding: 12px;
+    border-radius: var(--radius);
+    font-family: 'Courier New', monospace;
+    font-size: var(--font-xs);
+    overflow-x: auto;
+    white-space: pre;
+}
+
+.count-display {
+    background: var(--gray-100) !important;
+    font-weight: 600;
+    color: var(--primary) !important;
+    text-align: center;
+}
+
+.upload-preview {
+    background: var(--gray-50);
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius);
+    padding: 14px;
+    margin: 14px 0;
+    max-height: 200px;
+    overflow: auto;
+}
+
+.upload-preview h5 {
+    font-size: var(--font-sm);
+    margin-bottom: 10px;
+    color: var(--gray-700);
+}
+
+.upload-preview table {
+    width: 100%;
+    font-size: var(--font-xs);
+}
+
+.upload-preview th,
+.upload-preview td {
+    padding: 6px 8px;
+    border: 1px solid var(--gray-300);
+    text-align: left;
+}
+
+.upload-preview th {
+    background: var(--gray-200);
+}
+
+.preview-row-valid {
+    background: rgba(16, 185, 129, 0.1);
+}
+
+.preview-row-skip {
+    background: var(--gray-100);
+    color: var(--gray-500);
+}
+
+.transfer-stats {
+    display: flex;
+    gap: 20px;
+    margin-top: 10px;
+    font-size: var(--font-sm);
+}
+
+.transfer-stats span {
+    padding: 4px 10px;
+    border-radius: var(--radius);
+}
+
+.transfer-stats .valid {
+    background: rgba(16, 185, 129, 0.1);
+    color: var(--success);
+}
+
+.transfer-stats .skip {
+    background: var(--gray-100);
+    color: var(--gray-600);
+}
