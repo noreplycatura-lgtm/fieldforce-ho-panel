@@ -1361,3 +1361,54 @@ body {
         grid-column: span 1;
     }
 }
+/* ============================================
+   CUSTOMER TRANSFER BAR
+   ============================================ */
+
+.transfer-action-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--gray-100);
+    padding: 10px 14px;
+    border-radius: var(--radius);
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.transfer-info {
+    font-size: var(--font-sm);
+    color: var(--gray-600);
+}
+
+.transfer-info strong {
+    color: var(--primary);
+    font-size: var(--font-md);
+}
+
+.transfer-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.transfer-controls select {
+    padding: 6px 10px;
+    font-size: var(--font-sm);
+    border: 1px solid var(--gray-300);
+    border-radius: var(--radius);
+    background: var(--white);
+    min-width: 180px;
+}
+
+/* Checkbox in table */
+.data-table input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+.data-table tbody tr:has(input[type="checkbox"]:checked) {
+    background: rgba(79, 70, 229, 0.05);
+}
