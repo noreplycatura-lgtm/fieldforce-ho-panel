@@ -2898,5 +2898,330 @@ async function bulkTransferByFile() {
     reader.readAsText(file);
 }
 // ============================================
+// CUSTOMER TRANSFER BY EXCEL TEMPLATE
+// ============================================
+
+// Update customer count when employee selected
+function updateCustomerCount() {
+    const empId = document.getElementById('downloadEmpSelect').value;
+    const countInput = document.getElementById('empCustomerCount');
+    
+    if (!empId) {
+        countInput.value = '0';
+        return;
+    }
+    
+    const empCustomers = allCustomers.filter(c => 
+        c.created_by === empId && c.status === 'Approved'
+    );
+    
+    countInput.value = empCustomers.length;
+}
+
+// Download customer template for selected employee
+function downloadCustomerTemplate() {
+    const empId = document.getElementById('downloadEmpSelect').value;
+    
+    if (!empId) {
+        showToast('Please select an employee first', 'error');
+        return;
+    }
+    
+    const empCustomers = allCustomers.filter(c => 
+        c.created_by === empId && c.status === 'Approved'
+    );
+    
+    if (empCustomers.length === 0) {
+        showToast('No customers found for this employee', 'error');
+        return;
+    }
+    
+    // Get employee name
+    const emp = allEmployees.find(e => e.emp_id === empId);
+    const empName = emp ? emp.emp_name : empId;
+    
+    // Create CSV content
+    let csvContent = 'customer_id,customer_name,specialty,mobile,current_emp_id,current_emp_name,new_emp_id\n';
+    
+    empCustomers.forEach(cust => {
+        csvContent += `${cust.customer_id},${cust.customer_name || ''},${cust.specialty || ''},${cust.mobile || ''},${empId},${empName},\n`;
+    });
+    
+    // Download file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const fileName = `customer_transfer_${empName.replace(/\s+/g, '_')}_${formatDate(new Date())}.csv`;
+    
+    link.href = URL.createObjectURL(blob);
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    showToast(`Downloaded ${empCustomers.length} customers`, 'success');
+}
+
+// Preview transfer file before upload
+function previewTransferFile() {
+    const fileInput = document.getElementById('transferUploadFile');
+    const file = fileInput.files[0];
+    const previewDiv = document.getElementById('transferPreview');
+    const uploadBtn = document.getElementById('uploadTransferBtn');
+    
+    if (!file) {
+        previewDiv.classList.add('hidden');
+        uploadBtn.disabled = true;
+        return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = function(event) {
+        const text = event.target.result;
+        const lines = text.split('\n').filter(line => line.trim());
+        
+        if (lines.length < 2) {
+            previewDiv.innerHTML = '<p class="text-muted">File is empty or invalid</p>';
+            previewDiv.classList.remove('hidden');
+            uploadBtn.disabled = true;
+            return;
+        }
+        
+        const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+        const newEmpIdIndex = headers.indexOf('new_emp_id');
+        const customerIdIndex = headers.indexOf('customer_id');
+        const customerNameIndex = headers.indexOf('customer_name');
+        
+        if (customerIdIndex === -1 || newEmpIdIndex === -1) {
+            previewDiv.innerHTML = '<p style="color: var(--danger);">Invalid file format. Required columns: customer_id, new_emp_id</p>';
+            previewDiv.classList.remove('hidden');
+            uploadBtn.disabled = true;
+            return;
+        }
+        
+        // Parse and preview
+        let validCount = 0;
+        let skipCount = 0;
+        let previewHTML = '<h5>Preview (first 10 rows)</h5>';
+        previewHTML += '<table><thead><tr><th>Customer ID</th><th>Customer Name</th><th>New Emp ID</th><th>Status</th></tr></thead><tbody>';
+        
+        const maxPreview = Math.min(lines.length, 11); // Header + 10 rows
+        
+        for (let i = 1; i < maxPreview; i++) {
+            const values = lines[i].split(',').map(v => v.trim());
+            const customerId = values[customerIdIndex] || '';
+            const customerName = values[customerNameIndex] || '';
+            const newEmpId = values[newEmpIdIndex] || '';
+            
+            if (newEmpId && newEmpId.length > 0) {
+                validCount++;
+                previewHTML += `<tr class="preview-row-valid">
+                    <td>${customerId}</td>
+                    <td>${customerName}</td>
+                    <td>${newEmpId}</td>
+                    <td><span class="status approved">Will Transfer</span></td>
+                </tr>`;
+            } else {
+                skipCount++;
+                previewHTML += `<tr class="preview-row-skip">
+                    <td>${customerId}</td>
+                    <td>${customerName}</td>
+                    <td>-</td>
+                    <td><span class="status pending">Skip</span></td>
+                </tr>`;
+            }
+        }
+        
+        // Count all rows (not just preview)
+        for (let i = 11; i < lines.length; i++) {
+            const values = lines[i].split(',').map(v => v.trim());
+            const newEmpId = values[newEmpIdIndex] || '';
+            if (newEmpId && newEmpId.length > 0) {
+                validCount++;
+            } else {
+                skipCount++;
+            }
+        }
+        
+        previewHTML += '</tbody></table>';
+        previewHTML += `<div class="transfer-stats">
+            <span class="valid"><i class="fas fa-check"></i> To Transfer: ${validCount}</span>
+            <span class="skip"><i class="fas fa-minus"></i> Will Skip: ${skipCount}</span>
+        </div>`;
+        
+        previewDiv.innerHTML = previewHTML;
+        previewDiv.classList.remove('hidden');
+        uploadBtn.disabled = validCount === 0;
+    };
+    
+    reader.readAsText(file);
+}
+
+// Process and upload transfer file
+async function processTransferUpload() {
+    const fileInput = document.getElementById('transferUploadFile');
+    const file = fileInput.files[0];
+    
+    if (!file) {
+        showToast('Please select a file', 'error');
+        return;
+    }
+    
+    if (!confirm('Are you sure you want to transfer customers as per the uploaded file?')) {
+        return;
+    }
+    
+    showLoading();
+    
+    const reader = new FileReader();
+    reader.onload = async function(event) {
+        const text = event.target.result;
+        const lines = text.split('\n').filter(line => line.trim());
+        
+        const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+        const newEmpIdIndex = headers.indexOf('new_emp_id');
+        const customerIdIndex = headers.indexOf('customer_id');
+        
+        let successCount = 0;
+        let failCount = 0;
+        const errors = [];
+        
+        // Process each row
+        for (let i = 1; i < lines.length; i++) {
+            const values = lines[i].split(',').map(v => v.trim());
+            const customerId = values[customerIdIndex] || '';
+            const newEmpId = values[newEmpIdIndex] || '';
+            
+            // Skip if no new_emp_id
+            if (!newEmpId || newEmpId.length === 0) {
+                continue;
+            }
+            
+            // Validate customer exists
+            const customer = allCustomers.find(c => c.customer_id === customerId);
+            if (!customer) {
+                failCount++;
+                errors.push(`Row ${i + 1}: Customer ${customerId} not found`);
+                continue;
+            }
+            
+            // Validate new employee exists
+            const newEmp = allEmployees.find(e => e.emp_id === newEmpId);
+            if (!newEmp) {
+                failCount++;
+                errors.push(`Row ${i + 1}: Employee ${newEmpId} not found`);
+                continue;
+            }
+            
+            // Transfer customer
+            try {
+                const response = await apiCall('transferCustomer', {
+                    customer_id: customerId,
+                    new_emp_id: newEmpId
+                });
+                
+                if (response.success) {
+                    successCount++;
+                } else {
+                    failCount++;
+                    errors.push(`Row ${i + 1}: ${response.error || 'Transfer failed'}`);
+                }
+            } catch (error) {
+                failCount++;
+                errors.push(`Row ${i + 1}: Connection error`);
+            }
+        }
+        
+        hideLoading();
+        
+        // Show results
+        let message = `Transferred: ${successCount}`;
+        if (failCount > 0) {
+            message += `, Failed: ${failCount}`;
+            console.log('Transfer errors:', errors);
+        }
+        
+        showToast(message, successCount > 0 ? 'success' : 'error');
+        
+        // Reset form
+        fileInput.value = '';
+        document.getElementById('transferPreview').classList.add('hidden');
+        document.getElementById('uploadTransferBtn').disabled = true;
+        
+        // Reload customers
+        customersLoaded = false;
+        loadAllCustomers(true);
+    };
+    
+    reader.readAsText(file);
+}
+
+// Download employee list for reference
+function downloadEmployeeList() {
+    if (allEmployees.length === 0) {
+        showToast('No employees loaded', 'error');
+        return;
+    }
+    
+    let csvContent = 'emp_id,emp_name,designation,mobile,status\n';
+    
+    allEmployees.filter(e => e.status === 'Active').forEach(emp => {
+        csvContent += `${emp.emp_id},${emp.emp_name || ''},${emp.designation || ''},${emp.mobile || ''},${emp.status || ''}\n`;
+    });
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `employee_list_${formatDate(new Date())}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    showToast('Employee list downloaded', 'success');
+}
+
+// Load employee reference table
+function loadEmployeeReferenceTable() {
+    const tbody = document.getElementById('empReferenceBody');
+    
+    if (!tbody) return;
+    
+    if (allEmployees.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center">No employees loaded</td></tr>';
+        return;
+    }
+    
+    const activeEmps = allEmployees.filter(e => e.status === 'Active');
+    
+    tbody.innerHTML = activeEmps.map(emp => `
+        <tr>
+            <td><strong>${emp.emp_id}</strong></td>
+            <td>${emp.emp_name}</td>
+            <td>${emp.designation || '-'}</td>
+            <td><span class="status active">${emp.status}</span></td>
+        </tr>
+    `).join('');
+}
+
+// Populate download employee dropdown
+function populateTransferDropdowns() {
+    const downloadSelect = document.getElementById('downloadEmpSelect');
+    const fromSelect = document.getElementById('transferFromEmp');
+    const toSelect = document.getElementById('transferToEmp');
+    
+    if (!downloadSelect || !fromSelect || !toSelect) return;
+    
+    const activeEmployees = allEmployees.filter(e => e.status === 'Active');
+    
+    const optionsHTML = '<option value="">-- Select Employee --</option>' + 
+        activeEmployees.map(e => `<option value="${e.emp_id}">${e.emp_name} (${e.designation})</option>`).join('');
+    
+    downloadSelect.innerHTML = optionsHTML;
+    fromSelect.innerHTML = optionsHTML;
+    toSelect.innerHTML = optionsHTML;
+    
+    // Load reference table
+    loadEmployeeReferenceTable();
+}
+// ============================================
 // END OF APP.JS
 // ============================================
