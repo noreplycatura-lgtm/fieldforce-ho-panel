@@ -55,7 +55,11 @@ function saveToCache(key, data) {
         console.error(`[Cache] Error saving ${key}:`, error);
         if (error.name === 'QuotaExceededError') {
             clearOldCache();
-            localStorage.setItem(`cache_${key}`, JSON.stringify(cacheData));
+            try {
+                localStorage.setItem(`cache_${key}`, JSON.stringify(cacheData));
+            } catch (e) {
+                console.error('[Cache] Still failed after clearing:', e);
+            }
         }
     }
 }
@@ -99,7 +103,7 @@ function clearOldCache() {
 
 function clearAllCache() {
     clearOldCache();
-    showToast('Cache cleared', 'success');
+    showToast('Cache cleared successfully', 'success');
 }
 
 // ============================================
@@ -111,11 +115,11 @@ async function syncAllData() {
         console.log('[Sync] Already syncing...');
         return;
     }
-
+    
     isSyncing = true;
     updateSyncStatus('syncing');
     console.log('[Sync] Starting full sync...');
-
+    
     try {
         const syncTasks = [
             syncData('getAllEmployees', CACHE_KEYS.EMPLOYEES, (data) => { allEmployees = data.employees || []; }),
@@ -127,7 +131,7 @@ async function syncAllData() {
             syncData('getSettings', CACHE_KEYS.SETTINGS, null)
         ];
         
-        await Promise.all(syncTasks);
+        await Promise.allSettled(syncTasks);
         
         lastSyncTime = new Date().toISOString();
         saveToCache(CACHE_KEYS.LAST_SYNC, { timestamp: lastSyncTime });
@@ -148,7 +152,7 @@ async function syncAllData() {
 async function syncData(action, cacheKey, callback) {
     try {
         const response = await apiCall(action);
-
+        
         if (response.success) {
             saveToCache(cacheKey, response);
             if (callback) {
@@ -169,9 +173,9 @@ async function syncData(action, cacheKey, callback) {
 function updateSyncStatus(status) {
     const syncBtn = document.getElementById('refreshBtn');
     const syncIcon = syncBtn?.querySelector('i');
-
+    
     if (!syncBtn || !syncIcon) return;
-
+    
     switch (status) {
         case 'syncing':
             syncIcon.className = 'fas fa-sync-alt fa-spin';
@@ -195,13 +199,13 @@ function updateSyncStatus(status) {
 
 async function manualSync() {
     console.log('[Sync] Manual sync triggered');
-
+    
     if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
         navigator.serviceWorker.controller.postMessage({
             type: 'MANUAL_SYNC'
         });
     }
-
+    
     await syncAllData();
     refreshCurrentPage();
 }
@@ -213,7 +217,7 @@ document.addEventListener('visibilitychange', () => {
             const lastSyncDate = new Date(lastSync.timestamp);
             const now = new Date();
             const diffMinutes = (now - lastSyncDate) / (1000 * 60);
-
+            
             if (diffMinutes > 5) {
                 console.log('[Sync] Auto-syncing (last sync > 5 min ago)');
                 syncAllData();
@@ -230,7 +234,7 @@ async function loadDataWithCache(action, cacheKey, callback) {
         console.log(`[Cache] Showing cached data for ${cacheKey}`);
         if (callback) callback(cachedData);
     }
-
+    
     try {
         const response = await apiCall(action);
         if (response.success) {
@@ -255,8 +259,12 @@ document.addEventListener('DOMContentLoaded', function() {
         currentUser = JSON.parse(savedUser);
         showMainApp();
         loadDashboard();
+        
+        // Load employees immediately for all pages
+        loadEmployeesData();
+        
         syncAllData();
-
+        
         setInterval(() => {
             if (document.visibilityState === 'visible') {
                 syncAllData();
@@ -270,9 +278,31 @@ document.addEventListener('DOMContentLoaded', function() {
     setDefaultDates();
 });
 
+// Load employees data globally
+async function loadEmployeesData() {
+    if (allEmployees.length > 0) {
+        console.log('[Employees] Already loaded:', allEmployees.length);
+        return;
+    }
+    
+    try {
+        const response = await apiCall('getAllEmployees');
+        if (response.success) {
+            allEmployees = response.employees || [];
+            employeesLoaded = true;
+            console.log('[Employees] Loaded globally:', allEmployees.length);
+            populateEmployeeDropdowns();
+        }
+    } catch (error) {
+        console.error('[Employees] Error loading:', error);
+    }
+}
+
 function setupEventListeners() {
+    // Login Form
     document.getElementById('loginForm').addEventListener('submit', handleLogin);
 
+    // Sidebar Navigation
     document.querySelectorAll('.nav-item').forEach(item => {
         item.addEventListener('click', function() {
             const page = this.dataset.page;
@@ -280,33 +310,36 @@ function setupEventListeners() {
         });
     });
 
+    // Sidebar Toggle
     document.getElementById('sidebarToggle').addEventListener('click', toggleSidebar);
     document.getElementById('mobileMenuBtn').addEventListener('click', toggleMobileSidebar);
+
+    // Logout
     document.getElementById('logoutBtn').addEventListener('click', handleLogout);
+    
+    // Refresh Button
     document.getElementById('refreshBtn').addEventListener('click', manualSync);
 
-    // Tab click listeners with proper data loading
+    // Tabs
     document.querySelectorAll('.tab').forEach(tab => {
         tab.addEventListener('click', function() {
             const tabName = this.dataset.tab;
             switchTab(this, tabName);
-            
-            // Load transfer data when transfer tab is clicked
-            if (tabName === 'transferCustomers') {
-                loadTransferPageData();
-            }
         });
     });
 
+    // Search Inputs
     document.getElementById('empSearch')?.addEventListener('input', filterEmployees);
     document.getElementById('custSearch')?.addEventListener('input', filterCustomers);
     document.getElementById('stockSearch')?.addEventListener('input', filterStockists);
     document.getElementById('prodSearch')?.addEventListener('input', filterProducts);
     document.getElementById('areaSearch')?.addEventListener('input', filterAreas);
 
+    // Filter dropdowns
     document.getElementById('custStatusFilter')?.addEventListener('change', filterCustomers);
     document.getElementById('transferFromEmp')?.addEventListener('change', loadTransferCustomers);
 
+    // Form Submissions
     document.getElementById('employeeForm').addEventListener('submit', handleEmployeeSubmit);
     document.getElementById('stockistForm').addEventListener('submit', handleStockistSubmit);
     document.getElementById('productForm').addEventListener('submit', handleProductSubmit);
@@ -314,8 +347,17 @@ function setupEventListeners() {
     document.getElementById('announcementForm').addEventListener('submit', handleAnnouncementSubmit);
     document.getElementById('counterForm').addEventListener('submit', handleCounterSubmit);
 
+    // Bulk Upload File
     document.getElementById('bulkUploadFile')?.addEventListener('change', previewBulkUpload);
 
+    // Customer checkbox listeners
+    document.addEventListener('change', function(e) {
+        if (e.target.classList.contains('customer-select-checkbox')) {
+            updateSelectedCustomerCount();
+        }
+    });
+
+    // Close modals on outside click
     document.querySelectorAll('.modal').forEach(modal => {
         modal.addEventListener('click', function(e) {
             if (e.target === this) {
@@ -327,10 +369,10 @@ function setupEventListeners() {
 
 function updateDateTime() {
     const now = new Date();
-    const options = {
-        weekday: 'short',
-        day: '2-digit',
-        month: 'short',
+    const options = { 
+        weekday: 'short', 
+        day: '2-digit', 
+        month: 'short', 
         year: 'numeric',
         hour: '2-digit',
         minute: '2-digit'
@@ -341,9 +383,12 @@ function updateDateTime() {
 function setDefaultDates() {
     const today = new Date();
     const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-
-    document.getElementById('reportStartDate').valueAsDate = firstDay;
-    document.getElementById('reportEndDate').valueAsDate = today;
+    
+    const startDateEl = document.getElementById('reportStartDate');
+    const endDateEl = document.getElementById('reportEndDate');
+    
+    if (startDateEl) startDateEl.valueAsDate = firstDay;
+    if (endDateEl) endDateEl.valueAsDate = today;
 }
 
 // ============================================
@@ -352,10 +397,10 @@ function setDefaultDates() {
 
 async function handleLogin(e) {
     e.preventDefault();
-
+    
     const userCode = document.getElementById('userCode').value.trim();
     const password = document.getElementById('password').value.trim();
-
+    
     if (!userCode || !password) {
         showLoginError('Please enter User Code and Password');
         return;
@@ -376,6 +421,7 @@ async function handleLogin(e) {
             localStorage.setItem('hoUser', JSON.stringify(currentUser));
             showMainApp();
             loadDashboard();
+            loadEmployeesData();
         } else {
             showLoginError(response.error || 'Invalid credentials');
         }
@@ -395,6 +441,10 @@ function showLoginError(message) {
 function handleLogout() {
     if (confirm('Are you sure you want to logout?')) {
         currentUser = null;
+        allEmployees = [];
+        allCustomers = [];
+        employeesLoaded = false;
+        customersLoaded = false;
         localStorage.removeItem('hoUser');
         document.getElementById('loginPage').classList.add('active');
         document.getElementById('mainApp').classList.add('hidden');
@@ -439,6 +489,7 @@ async function apiCall(action, data = {}) {
 // ============================================
 
 function navigateTo(page) {
+    // Update nav items
     document.querySelectorAll('.nav-item').forEach(item => {
         item.classList.remove('active');
         if (item.dataset.page === page) {
@@ -446,6 +497,7 @@ function navigateTo(page) {
         }
     });
 
+    // Update page title
     const titles = {
         dashboard: 'Dashboard',
         employees: 'Employee Management',
@@ -461,19 +513,22 @@ function navigateTo(page) {
     };
     document.getElementById('pageTitle').textContent = titles[page] || 'Dashboard';
 
+    // Show/hide pages
     document.querySelectorAll('.content-page').forEach(p => {
         p.classList.remove('active');
     });
     document.getElementById(page + 'Page')?.classList.add('active');
 
+    // Load page data
     loadPageData(page);
 
+    // Close mobile sidebar
     document.getElementById('sidebar').classList.remove('open');
 }
 
 function loadPageData(page) {
     console.log('[Page] Loading:', page);
-
+    
     switch(page) {
         case 'dashboard':
             loadDashboard();
@@ -516,22 +571,11 @@ function refreshCurrentPage() {
     const activePage = document.querySelector('.nav-item.active');
     if (activePage) {
         const page = activePage.dataset.page;
-
+        
         if (page === 'employees') employeesLoaded = false;
         if (page === 'customers') customersLoaded = false;
         
-        switch(page) {
-            case 'employees':
-                loadEmployees(true);
-                break;
-            case 'customers':
-                loadPendingCustomers();
-                loadAllCustomers(true);
-                break;
-            default:
-                loadPageData(page);
-        }
-        
+        loadPageData(page);
         showToast('Data refreshed', 'success');
     }
 }
@@ -545,16 +589,23 @@ function toggleMobileSidebar() {
 }
 
 function switchTab(tabElement, tabName) {
+    // Update tab buttons
     tabElement.parentElement.querySelectorAll('.tab').forEach(t => {
         t.classList.remove('active');
     });
     tabElement.classList.add('active');
 
+    // Show/hide tab content
     const tabContents = tabElement.closest('.content-page').querySelectorAll('.tab-content');
     tabContents.forEach(content => {
         content.classList.remove('active');
     });
     document.getElementById(tabName + 'Tab')?.classList.add('active');
+    
+    // Load transfer data when switching to transfer tab
+    if (tabName === 'transferCustomers') {
+        loadTransferPageData();
+    }
 }
 
 // ============================================
@@ -571,15 +622,20 @@ async function loadDashboard() {
         if (response.success) {
             const data = response.dashboard;
 
+            // Update stats
             document.getElementById('statEmployees').textContent = data.active_employees || 0;
             document.getElementById('statTodayPunches').textContent = data.today_punches || 0;
             document.getElementById('statTodayVisits').textContent = data.today_visits || 0;
             document.getElementById('statTodayPOB').textContent = '₹' + formatNumber(data.today_pob || 0);
 
+            // Update pending counts
             document.getElementById('pendingCustomers').textContent = data.pending_customers || 0;
             document.getElementById('pendingExpenses').textContent = data.pending_expenses || 0;
 
+            // Update recent visits
             renderRecentVisits(data.recent_visits || []);
+
+            // Load performance data
             loadPerformanceData();
         }
     } catch (error) {
@@ -590,7 +646,7 @@ async function loadDashboard() {
 
 function renderRecentVisits(visits) {
     const container = document.getElementById('recentVisitsList');
-
+    
     if (visits.length === 0) {
         container.innerHTML = '<p class="text-muted">No recent visits</p>';
         return;
@@ -615,7 +671,7 @@ async function loadPerformanceData() {
     try {
         const today = new Date();
         const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-
+        
         const response = await apiCall('getHOReports', {
             report_type: 'employee_performance',
             start_date: formatDate(firstDay),
@@ -625,6 +681,7 @@ async function loadPerformanceData() {
         if (response.success && response.report) {
             const report = response.report;
             
+            // Calculate totals
             const totalCalls = report.reduce((sum, r) => sum + (r.total_calls || 0), 0);
             const productiveCalls = report.reduce((sum, r) => sum + (r.productive_calls || 0), 0);
             const totalPOB = report.reduce((sum, r) => sum + (r.total_pob || 0), 0);
@@ -668,17 +725,10 @@ async function loadPerformanceData() {
 }
 
 // ============================================
-// EMPLOYEES - FIXED VERSION
+// EMPLOYEES - COMPLETE FIXED VERSION
 // ============================================
 
-async function loadEmployees(forceReload = false) {
-    if (employeesLoaded && allEmployees.length > 0 && !forceReload) {
-        console.log('[Employees] Using cached data');
-        renderEmployeesTable(allEmployees);
-        populateEmployeeDropdowns();
-        return;
-    }
-
+async function loadEmployees() {
     showLoading();
 
     try {
@@ -704,7 +754,7 @@ async function loadEmployees(forceReload = false) {
 function renderEmployeesTable(employees) {
     const tbody = document.getElementById('employeesTableBody');
 
-    if (employees.length === 0) {
+    if (!employees || employees.length === 0) {
         tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No employees found</td></tr>';
         return;
     }
@@ -713,12 +763,12 @@ function renderEmployeesTable(employees) {
         const reportingToName = allEmployees.find(e => e.emp_id === emp.reporting_to)?.emp_name || '-';
         return `
             <tr>
-                <td>${emp.emp_id}</td>
-                <td>${emp.emp_name}</td>
-                <td>${emp.mobile}</td>
-                <td>${emp.designation}</td>
+                <td>${emp.emp_id || ''}</td>
+                <td>${emp.emp_name || ''}</td>
+                <td>${emp.mobile || ''}</td>
+                <td>${emp.designation || ''}</td>
                 <td>${reportingToName}</td>
-                <td><span class="status ${emp.status?.toLowerCase()}">${emp.status}</span></td>
+                <td><span class="status ${(emp.status || '').toLowerCase()}">${emp.status || ''}</span></td>
                 <td class="actions">
                     <button class="btn btn-sm btn-secondary" onclick="editEmployee('${emp.emp_id}')" title="Edit">
                         <i class="fas fa-edit"></i>
@@ -737,7 +787,7 @@ function renderEmployeesTable(employees) {
 
 function filterEmployees() {
     const search = document.getElementById('empSearch').value.toLowerCase();
-    const filtered = allEmployees.filter(emp =>
+    const filtered = allEmployees.filter(emp => 
         emp.emp_name?.toLowerCase().includes(search) ||
         emp.mobile?.includes(search) ||
         emp.emp_id?.toLowerCase().includes(search) ||
@@ -748,20 +798,37 @@ function filterEmployees() {
 
 function populateEmployeeDropdowns() {
     const activeEmployees = allEmployees.filter(e => e.status === 'Active');
-
+    
     // Reporting To dropdown
     const reportingTo = document.getElementById('empReportingTo');
     if (reportingTo) {
         reportingTo.innerHTML = '<option value="">None</option>' + 
-            activeEmployees.map(e => `<option value="${e.emp_id}">${e.emp_name} (${e.designation})</option>`).join('');
+            activeEmployees.map(e => `<option value="${e.emp_id}">${e.emp_name} (${e.designation || ''})</option>`).join('');
     }
+
+    // Transfer dropdowns
+    const transferFrom = document.getElementById('transferFromEmp');
+    const transferTo = document.getElementById('transferToEmp');
+    const downloadSelect = document.getElementById('downloadEmpSelect');
+    const transferTarget = document.getElementById('transferTargetEmp');
+    
+    const optionsHTML = '<option value="">-- Select Employee --</option>' + 
+        activeEmployees.map(e => `<option value="${e.emp_id}">${e.emp_name} (${e.designation || ''})</option>`).join('');
+    
+    if (transferFrom) transferFrom.innerHTML = optionsHTML;
+    if (transferTo) transferTo.innerHTML = optionsHTML;
+    if (downloadSelect) downloadSelect.innerHTML = optionsHTML;
+    if (transferTarget) transferTarget.innerHTML = optionsHTML;
 
     // Mapping dropdown
     const mappingEmployee = document.getElementById('mappingEmployee');
     if (mappingEmployee) {
         mappingEmployee.innerHTML = '<option value="">Select Employee</option>' + 
-            activeEmployees.map(e => `<option value="${e.emp_id}">${e.emp_name} (${e.designation})</option>`).join('');
+            activeEmployees.map(e => `<option value="${e.emp_id}">${e.emp_name} (${e.designation || ''})</option>`).join('');
     }
+    
+    // Load reference table
+    loadEmployeeReferenceTable();
 }
 
 // ============================================
@@ -773,55 +840,70 @@ async function openEmployeeModal(empId = null) {
     const form = document.getElementById('employeeForm');
     const title = document.getElementById('employeeModalTitle');
 
-    // Reset form first
+    // Reset form completely
     form.reset();
     document.getElementById('empId').value = '';
+    document.getElementById('empName').value = '';
+    document.getElementById('empMobile').value = '';
+    document.getElementById('empDesignation').value = '';
+    document.getElementById('empReportingTo').value = '';
+    document.getElementById('empEmail').value = '';
+    document.getElementById('empAddress').value = '';
+    document.getElementById('empEmergency').value = '';
+    document.getElementById('empPassword').value = '';
 
     if (empId) {
         title.textContent = 'Edit Employee';
-        console.log('[Edit] Opening modal for:', empId);
+        console.log('[Edit] Looking for employee:', empId);
         
-        // Load employees if not loaded
-        if (!allEmployees || allEmployees.length === 0) {
-            console.log('[Edit] Loading employees first...');
-            showLoading();
-            try {
+        // FIXED: Always fetch fresh data for editing
+        showLoading();
+        try {
+            // First try to find in existing array
+            let emp = allEmployees.find(e => e.emp_id === empId);
+            
+            // If not found or array is empty, fetch from API
+            if (!emp || allEmployees.length === 0) {
+                console.log('[Edit] Fetching employees from API...');
                 const response = await apiCall('getAllEmployees');
-                hideLoading();
                 if (response.success) {
                     allEmployees = response.employees || [];
                     employeesLoaded = true;
                     populateEmployeeDropdowns();
+                    emp = allEmployees.find(e => e.emp_id === empId);
                 }
-            } catch (error) {
-                hideLoading();
-                showToast('Error loading employee data', 'error');
+            }
+            
+            hideLoading();
+            
+            if (!emp) {
+                showToast('Employee not found: ' + empId, 'error');
+                console.error('[Edit] Employee not found in array:', empId);
+                console.log('[Edit] Available employees:', allEmployees.map(e => e.emp_id));
                 return;
             }
-        }
-        
-        // Find employee
-        const emp = allEmployees.find(e => e.emp_id === empId);
-        console.log('[Edit] Found employee:', emp);
-        
-        if (!emp) {
-            showToast('Employee not found: ' + empId, 'error');
+            
+            console.log('[Edit] Found employee:', emp);
+            
+            // Fill form fields
+            document.getElementById('empId').value = emp.emp_id || '';
+            document.getElementById('empName').value = emp.emp_name || '';
+            document.getElementById('empMobile').value = emp.mobile || '';
+            document.getElementById('empDesignation').value = emp.designation || '';
+            document.getElementById('empReportingTo').value = emp.reporting_to || '';
+            document.getElementById('empEmail').value = emp.email || '';
+            document.getElementById('empAddress').value = emp.address || '';
+            document.getElementById('empEmergency').value = emp.emergency_contact || '';
+            // Password blank for security
+            
+            console.log('[Edit] Form filled successfully');
+            
+        } catch (error) {
+            hideLoading();
+            showToast('Error loading employee data', 'error');
+            console.error('[Edit] Error:', error);
             return;
         }
-        
-        // Fill form fields
-        document.getElementById('empId').value = emp.emp_id || '';
-        document.getElementById('empName').value = emp.emp_name || '';
-        document.getElementById('empMobile').value = emp.mobile || '';
-        document.getElementById('empDesignation').value = emp.designation || '';
-        document.getElementById('empReportingTo').value = emp.reporting_to || '';
-        document.getElementById('empEmail').value = emp.email || '';
-        document.getElementById('empAddress').value = emp.address || '';
-        document.getElementById('empEmergency').value = emp.emergency_contact || '';
-        document.getElementById('empPassword').value = ''; // Keep password blank for security
-        
-        console.log('[Edit] Form filled successfully');
-        
     } else {
         title.textContent = 'Add Employee';
     }
@@ -829,7 +911,7 @@ async function openEmployeeModal(empId = null) {
     modal.classList.add('active');
 }
 
-// Single editEmployee function - FIXED (removed duplicate)
+// FIXED: Edit employee function
 function editEmployee(empId) {
     console.log('[Edit] Button clicked for:', empId);
     openEmployeeModal(empId);
@@ -864,8 +946,9 @@ async function handleEmployeeSubmit(e) {
 
         if (response.success) {
             closeModal('employeeModal');
+            // Reload employees to get fresh data
             employeesLoaded = false;
-            loadEmployees(true);
+            await loadEmployees();
             showToast(empId ? 'Employee updated successfully' : 'Employee added successfully', 'success');
         } else {
             showToast(response.error || 'Error saving employee', 'error');
@@ -891,8 +974,7 @@ async function toggleBlockEmployee(empId, isBlocked) {
         hideLoading();
 
         if (response.success) {
-            employeesLoaded = false;
-            loadEmployees(true);
+            loadEmployees();
             showToast(`Employee ${action}ed successfully`, 'success');
         } else {
             showToast(response.error || 'Error updating employee', 'error');
@@ -913,8 +995,7 @@ async function deleteEmployee(empId) {
         hideLoading();
 
         if (response.success) {
-            employeesLoaded = false;
-            loadEmployees(true);
+            loadEmployees();
             showToast('Employee deleted successfully', 'success');
         } else {
             showToast(response.error || 'Error deleting employee', 'error');
@@ -926,13 +1007,13 @@ async function deleteEmployee(empId) {
 }
 
 // ============================================
-// CUSTOMERS
+// CUSTOMERS - PENDING APPROVALS
 // ============================================
 
 async function loadPendingCustomers() {
     try {
         const response = await apiCall('getPendingCustomers');
-
+        
         if (response.success) {
             renderPendingCustomers(response.customers || []);
         }
@@ -984,8 +1065,7 @@ async function approveCustomer(customerId) {
 
         if (response.success) {
             loadPendingCustomers();
-            customersLoaded = false;
-            loadAllCustomers(true);
+            loadAllCustomers();
             loadDashboard();
             showToast('Customer approved', 'success');
         } else {
@@ -1024,7 +1104,7 @@ async function rejectCustomer(customerId) {
 }
 
 // ============================================
-// ALL CUSTOMERS - WITH TRANSFER
+// ALL CUSTOMERS - FIXED
 // ============================================
 
 async function loadAllCustomers(forceReload = false) {
@@ -1042,7 +1122,6 @@ async function loadAllCustomers(forceReload = false) {
             customersLoaded = true;
             console.log('[Customers] Loaded:', allCustomers.length);
             renderAllCustomers(allCustomers);
-            loadEmployeesForDropdown();
         }
     } catch (error) {
         console.error('Load all customers error:', error);
@@ -1052,7 +1131,7 @@ async function loadAllCustomers(forceReload = false) {
 function renderAllCustomers(customers) {
     const tbody = document.getElementById('allCustomersBody');
 
-    if (customers.length === 0) {
+    if (!customers || customers.length === 0) {
         tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted">No customers found</td></tr>';
         return;
     }
@@ -1061,19 +1140,19 @@ function renderAllCustomers(customers) {
         <tr>
             <td>
                 <input type="checkbox" class="customer-select-checkbox" value="${cust.customer_id}" 
-                    data-name="${cust.customer_name}" data-emp="${cust.created_by}" onchange="updateSelectedCustomerCount()">
+                    data-name="${cust.customer_name || ''}" data-emp="${cust.created_by || ''}">
             </td>
             <td>${cust.customer_code || '-'}</td>
-            <td>${cust.customer_name}</td>
+            <td>${cust.customer_name || ''}</td>
             <td>${cust.specialty || '-'}</td>
             <td>${cust.area_id || '-'}</td>
             <td>${cust.city || '-'}</td>
-            <td>${cust.mobile}</td>
-            <td><span class="status ${cust.status?.toLowerCase()}">${cust.status}</span></td>
-            <td>${cust.created_by_name || cust.created_by}</td>
+            <td>${cust.mobile || ''}</td>
+            <td><span class="status ${(cust.status || '').toLowerCase()}">${cust.status || ''}</span></td>
+            <td>${cust.created_by_name || cust.created_by || ''}</td>
         </tr>
     `).join('');
-
+    
     updateSelectedCustomerCount();
 }
 
@@ -1092,51 +1171,30 @@ function selectAllCustomers(checkbox) {
     updateSelectedCustomerCount();
 }
 
-async function loadEmployeesForDropdown() {
-    if (allEmployees.length === 0) {
-        try {
-            const response = await apiCall('getAllEmployees');
-            if (response.success) {
-                allEmployees = response.employees || [];
-            }
-        } catch (error) {
-            console.error('Error loading employees for dropdown');
-        }
-    }
-
-    const activeEmployees = allEmployees.filter(e => e.status === 'Active');
-
-    const transferTarget = document.getElementById('transferTargetEmp');
-    if (transferTarget) {
-        transferTarget.innerHTML = '<option value="">-- Select Employee --</option>' + 
-            activeEmployees.map(e => `<option value="${e.emp_id}">${e.emp_name} (${e.designation})</option>`).join('');
-    }
-}
-
 async function transferSelectedCustomers() {
     const targetEmpId = document.getElementById('transferTargetEmp').value;
-
+    
     if (!targetEmpId) {
         showToast('Please select target employee', 'error');
         return;
     }
-
+    
     const selectedCustomers = [];
     document.querySelectorAll('.customer-select-checkbox:checked').forEach(cb => {
         selectedCustomers.push(cb.value);
     });
-
+    
     if (selectedCustomers.length === 0) {
         showToast('Please select at least one customer', 'error');
         return;
     }
-
+    
     if (!confirm(`Transfer ${selectedCustomers.length} customer(s) to selected employee?`)) {
         return;
     }
-
+    
     showLoading();
-
+    
     try {
         const response = await apiCall('bulkTransferCustomers', {
             customer_ids: selectedCustomers,
@@ -1185,223 +1243,123 @@ function filterCustomers() {
 }
 
 // ============================================
-// CUSTOMER TRANSFER - EXCEL TEMPLATE METHOD
+// CUSTOMER TRANSFER - EXCEL TEMPLATE METHOD (FIXED)
 // ============================================
 
 async function loadTransferPageData() {
     console.log('[Transfer] Loading transfer page data...');
-
-    // Load employees if not loaded
+    
+    // Ensure employees are loaded
     if (!allEmployees || allEmployees.length === 0) {
         try {
             const response = await apiCall('getAllEmployees');
             if (response.success) {
                 allEmployees = response.employees || [];
+                employeesLoaded = true;
                 console.log('[Transfer] Employees loaded:', allEmployees.length);
             }
         } catch (error) {
             console.error('[Transfer] Error loading employees:', error);
         }
     }
-
-    // Load customers if not loaded
+    
+    // Ensure customers are loaded
     if (!allCustomers || allCustomers.length === 0) {
         try {
             const response = await apiCall('getAllCustomersHO');
             if (response.success) {
                 allCustomers = response.customers || [];
+                customersLoaded = true;
                 console.log('[Transfer] Customers loaded:', allCustomers.length);
             }
         } catch (error) {
             console.error('[Transfer] Error loading customers:', error);
         }
     }
-
-    // Populate all dropdowns
-    populateAllTransferDropdowns();
-}
-
-function populateAllTransferDropdowns() {
-    console.log('[Transfer] Populating dropdowns...');
-
-    const activeEmployees = allEmployees.filter(e => e.status === 'Active');
-    console.log('[Transfer] Active employees:', activeEmployees.length);
-
-    const optionsHTML = '<option value="">-- Select Employee --</option>' + 
-        activeEmployees.map(e => `<option value="${e.emp_id}">${e.emp_name} (${e.designation || ''})</option>`).join('');
-
-    // Download template dropdown
-    const downloadSelect = document.getElementById('downloadEmpSelect');
-    if (downloadSelect) {
-        downloadSelect.innerHTML = optionsHTML;
-    }
-
-    // From employee dropdown
-    const fromSelect = document.getElementById('transferFromEmp');
-    if (fromSelect) {
-        fromSelect.innerHTML = optionsHTML;
-    }
-
-    // To employee dropdown
-    const toSelect = document.getElementById('transferToEmp');
-    if (toSelect) {
-        toSelect.innerHTML = optionsHTML;
-    }
-
-    // Employee reference table
-    loadEmployeeReferenceTable();
+    
+    populateEmployeeDropdowns();
 }
 
 function updateCustomerCount() {
     const empId = document.getElementById('downloadEmpSelect')?.value;
     const countInput = document.getElementById('empCustomerCount');
-
+    
     if (!countInput) return;
-
+    
     if (!empId) {
         countInput.value = '0';
         return;
     }
-
+    
     const empCustomers = allCustomers.filter(c => 
         c.created_by === empId && c.status === 'Approved'
     );
-
+    
     countInput.value = empCustomers.length;
     console.log('[Transfer] Customer count for', empId, ':', empCustomers.length);
 }
 
+// FIXED: Download customer template for selected employee
 function downloadCustomerTemplate() {
     const empId = document.getElementById('downloadEmpSelect')?.value;
-
+    
     if (!empId) {
         showToast('Please select an employee first', 'error');
         return;
     }
-
+    
     const empCustomers = allCustomers.filter(c => 
         c.created_by === empId && c.status === 'Approved'
     );
-
+    
     if (empCustomers.length === 0) {
         showToast('No customers found for this employee', 'error');
         return;
     }
-
+    
     // Get employee name
     const emp = allEmployees.find(e => e.emp_id === empId);
     const empName = emp ? emp.emp_name : empId;
-
-    // Create CSV content with BOM for Excel compatibility
-    let csvContent = '\uFEFF'; // UTF-8 BOM
-    csvContent += 'customer_id,customer_name,specialty,mobile,current_emp_id,current_emp_name,new_emp_id\n';
-
+    
+    // Create CSV content with proper escaping
+    let csvContent = 'customer_id,customer_name,specialty,mobile,current_emp_id,current_emp_name,new_emp_id\n';
+    
     empCustomers.forEach(cust => {
-        const name = (cust.customer_name || '').replace(/,/g, ' ').replace(/"/g, '');
-        const specialty = (cust.specialty || '').replace(/,/g, ' ').replace(/"/g, '');
-        csvContent += `${cust.customer_id},"${name}","${specialty}",${cust.mobile || ''},${empId},"${empName}",\n`;
+        // Escape commas and quotes in fields
+        const name = escapeCSVField(cust.customer_name || '');
+        const specialty = escapeCSVField(cust.specialty || '');
+        const mobile = escapeCSVField(cust.mobile || '');
+        const currentEmpName = escapeCSVField(empName);
+        
+        csvContent += `${cust.customer_id},${name},${specialty},${mobile},${empId},${currentEmpName},\n`;
     });
-
+    
     // Download file
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const today = new Date().toISOString().split('T')[0];
     const fileName = `customer_transfer_${empName.replace(/\s+/g, '_')}_${today}.csv`;
-
+    
     link.href = URL.createObjectURL(blob);
     link.download = fileName;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-
-    showToast(`Downloaded ${empCustomers.length} customers template`, 'success');
+    
+    showToast(`Downloaded ${empCustomers.length} customers for transfer`, 'success');
 }
 
-function previewTransferFile() {
-    const fileInput = document.getElementById('transferUploadFile');
-    const file = fileInput?.files[0];
-    const previewDiv = document.getElementById('transferPreview');
-    const uploadBtn = document.getElementById('uploadTransferBtn');
-
-    if (!file) {
-        if (previewDiv) previewDiv.classList.add('hidden');
-        if (uploadBtn) uploadBtn.disabled = true;
-        return;
+// Helper function to escape CSV fields
+function escapeCSVField(field) {
+    if (!field) return '';
+    // If field contains comma, quote, or newline, wrap in quotes and escape quotes
+    if (field.includes(',') || field.includes('"') || field.includes('\n')) {
+        return '"' + field.replace(/"/g, '""') + '"';
     }
-
-    const reader = new FileReader();
-    reader.onload = function(event) {
-        const text = event.target.result;
-        const lines = text.split('\n').filter(line => line.trim());
-        
-        if (lines.length < 2) {
-            previewDiv.innerHTML = '<p class="text-muted">File is empty or invalid</p>';
-            previewDiv.classList.remove('hidden');
-            uploadBtn.disabled = true;
-            return;
-        }
-        
-        const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/"/g, ''));
-        const newEmpIdIndex = headers.indexOf('new_emp_id');
-        const customerIdIndex = headers.indexOf('customer_id');
-        const customerNameIndex = headers.indexOf('customer_name');
-        
-        if (customerIdIndex === -1 || newEmpIdIndex === -1) {
-            previewDiv.innerHTML = '<p style="color: red;"><i class="fas fa-exclamation-triangle"></i> Invalid file. Required columns: customer_id, new_emp_id</p>';
-            previewDiv.classList.remove('hidden');
-            uploadBtn.disabled = true;
-            return;
-        }
-        
-        let validCount = 0;
-        let skipCount = 0;
-        let previewHTML = '<h5><i class="fas fa-eye"></i> Preview:</h5>';
-        previewHTML += '<table style="width:100%; font-size:11px;"><thead><tr><th>Customer ID</th><th>Name</th><th>New Emp ID</th><th>Status</th></tr></thead><tbody>';
-        
-        for (let i = 1; i < lines.length; i++) {
-            const values = parseCSVLine(lines[i]);
-            const customerId = values[customerIdIndex] || '';
-            const customerName = values[customerNameIndex] || '';
-            const newEmpId = values[newEmpIdIndex] || '';
-            
-            if (newEmpId && newEmpId.trim().length > 0) {
-                validCount++;
-                if (i <= 10) {
-                    previewHTML += `<tr style="background: rgba(16,185,129,0.1);">
-                        <td>${customerId}</td><td>${customerName}</td><td><strong>${newEmpId}</strong></td>
-                        <td><span class="status approved">Transfer</span></td>
-                    </tr>`;
-                }
-            } else {
-                skipCount++;
-                if (i <= 10) {
-                    previewHTML += `<tr style="background: #f5f5f5; color: #999;">
-                        <td>${customerId}</td><td>${customerName}</td><td>-</td>
-                        <td><span class="status pending">Skip</span></td>
-                    </tr>`;
-                }
-            }
-        }
-        
-        if (lines.length > 11) {
-            previewHTML += `<tr><td colspan="4" class="text-center text-muted">... and ${lines.length - 11} more rows</td></tr>`;
-        }
-        
-        previewHTML += '</tbody></table>';
-        previewHTML += `<div style="margin-top:10px; padding:10px; background:#f0f0f0; border-radius:6px;">
-            <strong style="color:#10b981;"><i class="fas fa-check"></i> To Transfer: ${validCount}</strong> &nbsp;&nbsp;|&nbsp;&nbsp; 
-            <span style="color:#666;"><i class="fas fa-minus"></i> Will Skip: ${skipCount}</span>
-        </div>`;
-        
-        previewDiv.innerHTML = previewHTML;
-        previewDiv.classList.remove('hidden');
-        uploadBtn.disabled = validCount === 0;
-    };
-
-    reader.readAsText(file);
+    return field;
 }
 
-// Helper function to parse CSV line properly (handles quoted values)
+// Helper function to parse CSV line (handles quoted fields)
 function parseCSVLine(line) {
     const result = [];
     let current = '';
@@ -1424,21 +1382,113 @@ function parseCSVLine(line) {
     return result;
 }
 
+// FIXED: Preview transfer file before upload
+function previewTransferFile() {
+    const fileInput = document.getElementById('transferUploadFile');
+    const file = fileInput?.files[0];
+    const previewDiv = document.getElementById('transferPreview');
+    const uploadBtn = document.getElementById('uploadTransferBtn');
+    
+    if (!file) {
+        if (previewDiv) previewDiv.classList.add('hidden');
+        if (uploadBtn) uploadBtn.disabled = true;
+        return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = function(event) {
+        const text = event.target.result;
+        const lines = text.split('\n').filter(line => line.trim());
+        
+        if (lines.length < 2) {
+            previewDiv.innerHTML = '<p style="color: red;">File is empty or invalid</p>';
+            previewDiv.classList.remove('hidden');
+            uploadBtn.disabled = true;
+            return;
+        }
+        
+        const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/"/g, ''));
+        const newEmpIdIndex = headers.indexOf('new_emp_id');
+        const customerIdIndex = headers.indexOf('customer_id');
+        const customerNameIndex = headers.indexOf('customer_name');
+        
+        if (customerIdIndex === -1 || newEmpIdIndex === -1) {
+            previewDiv.innerHTML = '<p style="color: red;">Invalid file format. Required columns: customer_id, new_emp_id</p>';
+            previewDiv.classList.remove('hidden');
+            uploadBtn.disabled = true;
+            return;
+        }
+        
+        let validCount = 0;
+        let skipCount = 0;
+        let previewHTML = '<h5>Transfer Preview:</h5>';
+        previewHTML += '<table style="width:100%; font-size:11px;"><thead><tr><th>Customer ID</th><th>Customer Name</th><th>New Emp ID</th><th>Status</th></tr></thead><tbody>';
+        
+        // Process all rows
+        for (let i = 1; i < lines.length; i++) {
+            const values = parseCSVLine(lines[i]);
+            const customerId = values[customerIdIndex] || '';
+            const customerName = values[customerNameIndex] || '';
+            const newEmpId = values[newEmpIdIndex] || '';
+            
+            if (newEmpId && newEmpId.trim().length > 0) {
+                validCount++;
+                // Show only first 10 in preview
+                if (i <= 10) {
+                    previewHTML += `<tr style="background: rgba(16,185,129,0.1);">
+                        <td>${customerId}</td>
+                        <td>${customerName}</td>
+                        <td><strong>${newEmpId}</strong></td>
+                        <td><span class="status approved">Will Transfer</span></td>
+                    </tr>`;
+                }
+            } else {
+                skipCount++;
+                if (i <= 10) {
+                    previewHTML += `<tr style="background: #f5f5f5; color: #999;">
+                        <td>${customerId}</td>
+                        <td>${customerName}</td>
+                        <td>-</td>
+                        <td><span class="status pending">Skip</span></td>
+                    </tr>`;
+                }
+            }
+        }
+        
+        if (lines.length > 11) {
+            previewHTML += `<tr><td colspan="4" style="text-align:center; color:#666;">... and ${lines.length - 11} more rows</td></tr>`;
+        }
+        
+        previewHTML += '</tbody></table>';
+        previewHTML += `<div style="margin-top:10px; padding:10px; background:#f8f9fa; border-radius:4px;">
+            <strong style="color:#10b981;">✓ To Transfer: ${validCount}</strong> &nbsp;&nbsp;|&nbsp;&nbsp;
+            <span style="color:#666;">Skip (no emp_id): ${skipCount}</span>
+        </div>`;
+        
+        previewDiv.innerHTML = previewHTML;
+        previewDiv.classList.remove('hidden');
+        uploadBtn.disabled = validCount === 0;
+    };
+    
+    reader.readAsText(file);
+}
+
+// FIXED: Process and upload transfer file
 async function processTransferUpload() {
     const fileInput = document.getElementById('transferUploadFile');
     const file = fileInput?.files[0];
-
+    
     if (!file) {
         showToast('Please select a file', 'error');
         return;
     }
-
+    
     if (!confirm('Transfer customers as per the uploaded file?')) {
         return;
     }
-
+    
     showLoading();
-
+    
     const reader = new FileReader();
     reader.onload = async function(event) {
         const text = event.target.result;
@@ -1448,49 +1498,68 @@ async function processTransferUpload() {
         const newEmpIdIndex = headers.indexOf('new_emp_id');
         const customerIdIndex = headers.indexOf('customer_id');
         
+        // Collect all transfers to do in bulk
+        const transferData = [];
+        
+        for (let i = 1; i < lines.length; i++) {
+            const values = parseCSVLine(lines[i]);
+            const customerId = values[customerIdIndex]?.trim() || '';
+            const newEmpId = values[newEmpIdIndex]?.trim() || '';
+            
+            if (newEmpId && newEmpId.length > 0 && customerId) {
+                transferData.push({
+                    customer_id: customerId,
+                    new_emp_id: newEmpId
+                });
+            }
+        }
+        
+        if (transferData.length === 0) {
+            hideLoading();
+            showToast('No valid transfers found in file', 'error');
+            return;
+        }
+        
+        // Process transfers in batches
         let successCount = 0;
         let failCount = 0;
         const errors = [];
         
-        for (let i = 1; i < lines.length; i++) {
-            const values = parseCSVLine(lines[i]);
-            const customerId = values[customerIdIndex] || '';
-            const newEmpId = values[newEmpIdIndex] || '';
-            
-            if (!newEmpId || newEmpId.trim().length === 0) continue;
-            
-            // Validate employee exists
-            const targetEmp = allEmployees.find(e => e.emp_id === newEmpId.trim());
-            if (!targetEmp) {
-                failCount++;
-                errors.push(`Row ${i + 1}: Employee ${newEmpId} not found`);
-                continue;
+        // Group by new_emp_id for bulk transfer
+        const groupedByEmp = {};
+        transferData.forEach(item => {
+            if (!groupedByEmp[item.new_emp_id]) {
+                groupedByEmp[item.new_emp_id] = [];
             }
-            
+            groupedByEmp[item.new_emp_id].push(item.customer_id);
+        });
+        
+        // Process each group
+        for (const [empId, customerIds] of Object.entries(groupedByEmp)) {
             try {
-                const response = await apiCall('transferCustomer', {
-                    customer_id: customerId,
-                    new_emp_id: newEmpId.trim()
+                const response = await apiCall('bulkTransferCustomers', {
+                    customer_ids: customerIds,
+                    new_emp_id: empId
                 });
                 
                 if (response.success) {
-                    successCount++;
+                    successCount += customerIds.length;
                 } else {
-                    failCount++;
-                    errors.push(`Row ${i + 1}: ${response.error || 'Failed'}`);
+                    failCount += customerIds.length;
+                    errors.push(`${empId}: ${response.error || 'Failed'}`);
                 }
             } catch (error) {
-                failCount++;
-                errors.push(`Row ${i + 1}: Connection error`);
+                failCount += customerIds.length;
+                errors.push(`${empId}: Connection error`);
             }
         }
         
         hideLoading();
         
         // Show results
-        let message = `✓ Transferred: ${successCount}`;
+        let message = `Transferred: ${successCount}`;
         if (failCount > 0) {
-            message += ` | ✗ Failed: ${failCount}`;
+            message += `, Failed: ${failCount}`;
             console.log('Transfer errors:', errors);
         }
         
@@ -1505,45 +1574,46 @@ async function processTransferUpload() {
         customersLoaded = false;
         loadAllCustomers(true);
     };
-
+    
     reader.readAsText(file);
 }
 
+// Download employee list for reference
 function downloadEmployeeList() {
     if (allEmployees.length === 0) {
         showToast('No employees loaded', 'error');
         return;
     }
-
-    let csvContent = '\uFEFF'; // UTF-8 BOM
-    csvContent += 'emp_id,emp_name,designation,mobile,status\n';
-
+    
+    let csvContent = 'emp_id,emp_name,designation,mobile,status\n';
+    
     allEmployees.filter(e => e.status === 'Active').forEach(emp => {
-        csvContent += `${emp.emp_id},"${emp.emp_name || ''}",${emp.designation || ''},${emp.mobile || ''},${emp.status || ''}\n`;
+        csvContent += `${emp.emp_id},${escapeCSVField(emp.emp_name || '')},${emp.designation || ''},${emp.mobile || ''},${emp.status || ''}\n`;
     });
-
+    
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `employee_list_${new Date().toISOString().split('T')[0]}.csv`;
+    link.download = `employee_list_${formatDate(new Date())}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-
+    
     showToast('Employee list downloaded', 'success');
 }
 
+// Load employee reference table
 function loadEmployeeReferenceTable() {
     const tbody = document.getElementById('empReferenceBody');
     if (!tbody) return;
-
+    
     const activeEmps = allEmployees.filter(e => e.status === 'Active');
-
+    
     if (activeEmps.length === 0) {
         tbody.innerHTML = '<tr><td colspan="4" class="text-center">No employees loaded</td></tr>';
         return;
     }
-
+    
     tbody.innerHTML = activeEmps.map(emp => `
         <tr>
             <td><strong>${emp.emp_id}</strong></td>
@@ -1554,28 +1624,25 @@ function loadEmployeeReferenceTable() {
     `).join('');
 }
 
-// ============================================
-// QUICK MANUAL TRANSFER
-// ============================================
-
+// Quick manual transfer - load customers for selected employee
 async function loadTransferCustomers() {
     const fromEmpId = document.getElementById('transferFromEmp')?.value;
     const container = document.getElementById('transferCustomersList');
-
+    
     if (!container) return;
-
+    
     if (!fromEmpId) {
         container.innerHTML = '<p class="text-muted">Select "From Employee" first</p>';
         return;
     }
-
+    
     const empCustomers = allCustomers.filter(c => c.created_by === fromEmpId && c.status === 'Approved');
-
+    
     if (empCustomers.length === 0) {
         container.innerHTML = '<p class="text-muted">No customers found for this employee</p>';
         return;
     }
-
+    
     container.innerHTML = `
         <div class="checkbox-item">
             <input type="checkbox" id="selectAllTransfer" onchange="toggleSelectAllTransfer(this)">
@@ -1597,26 +1664,26 @@ function toggleSelectAllTransfer(checkbox) {
 
 async function bulkTransferCustomers() {
     const toEmpId = document.getElementById('transferToEmp')?.value;
-
+    
     if (!toEmpId) {
         showToast('Select target employee', 'error');
         return;
     }
-
+    
     const selected = [];
     document.querySelectorAll('.transfer-cust-cb:checked').forEach(cb => {
         selected.push(cb.value);
     });
-
+    
     if (selected.length === 0) {
         showToast('Select at least one customer', 'error');
         return;
     }
-
+    
     if (!confirm(`Transfer ${selected.length} customer(s)?`)) return;
-
+    
     showLoading();
-
+    
     try {
         const response = await apiCall('bulkTransferCustomers', {
             customer_ids: selected,
@@ -1626,9 +1693,10 @@ async function bulkTransferCustomers() {
         hideLoading();
         
         if (response.success) {
-            showToast(response.message || 'Customers transferred successfully', 'success');
+            showToast(response.message || 'Customers transferred', 'success');
             document.getElementById('transferCustomersList').innerHTML = '<p class="text-muted">Select "From Employee" first</p>';
             document.getElementById('transferFromEmp').value = '';
+            document.getElementById('transferToEmp').value = '';
             customersLoaded = false;
             loadAllCustomers(true);
         } else {
@@ -1639,7 +1707,6 @@ async function bulkTransferCustomers() {
         showToast('Connection error', 'error');
     }
 }
-
 // ============================================
 // STOCKISTS
 // ============================================
@@ -1690,7 +1757,7 @@ function renderStockistsTable(stockists) {
 
 function filterStockists() {
     const search = document.getElementById('stockSearch').value.toLowerCase();
-    const filtered = allStockists.filter(stock =>
+    const filtered = allStockists.filter(stock => 
         stock.stockist_name?.toLowerCase().includes(search) ||
         stock.mobile?.includes(search) ||
         stock.city?.toLowerCase().includes(search)
@@ -1838,7 +1905,7 @@ function renderProductsTable(products) {
 
 function filterProducts() {
     const search = document.getElementById('prodSearch').value.toLowerCase();
-    const filtered = allProducts.filter(prod =>
+    const filtered = allProducts.filter(prod => 
         prod.product_name?.toLowerCase().includes(search) ||
         prod.product_code?.toLowerCase().includes(search) ||
         prod.category?.toLowerCase().includes(search)
@@ -1988,7 +2055,7 @@ function renderAreasTable(areas) {
 
 function filterAreas() {
     const search = document.getElementById('areaSearch').value.toLowerCase();
-    const filtered = allAreas.filter(area =>
+    const filtered = allAreas.filter(area => 
         area.area_name?.toLowerCase().includes(search) ||
         area.city?.toLowerCase().includes(search) ||
         area.state?.toLowerCase().includes(search)
@@ -2087,7 +2154,7 @@ async function deleteArea(areaId) {
 async function loadPendingExpenses() {
     try {
         const response = await apiCall('getPendingExpenses');
-
+        
         if (response.success) {
             renderPendingExpenses(response.expenses || []);
         }
@@ -2130,545 +2197,48 @@ function renderPendingExpenses(expenses) {
     `).join('');
 }
 
-async function viewExpenseDetails(expenseId) {
+async function loadAllExpenses() {
+    const month = document.getElementById('expMonthFilter')?.value;
+    const status = document.getElementById('expStatusFilter')?.value;
+    
     showLoading();
-
+    
     try {
-        const response = await apiCall('getExpenseDetails', { expense_id: expenseId });
-        hideLoading();
-
-        if (response.success) {
-            renderExpenseDetailModal(response);
-        } else {
-            showToast(response.error || 'Error loading details', 'error');
-        }
-    } catch (error) {
-        hideLoading();
-        showToast('Connection error', 'error');
-    }
-}
-
-function renderExpenseDetailModal(data) {
-    const modal = document.getElementById('expenseDetailModal');
-    const content = document.getElementById('expenseDetailContent');
-    const actions = document.getElementById('expenseDetailActions');
-
-    const monthly = data.monthly;
-    const daily = data.daily || [];
-    const employee = data.employee;
-
-    content.innerHTML = `
-        <div class="expense-detail-header">
-            <h4>${employee?.emp_name || 'Employee'} - ${employee?.designation || ''}</h4>
-            <p>${getMonthName(monthly.month)} ${monthly.year}</p>
-            <span class="status ${monthly.status?.toLowerCase()}">${monthly.status}</span>
-        </div>
-
-        <div class="expense-summary">
-            <div class="summary-item">
-                <span class="label">Mobile Allowance:</span>
-                <span class="value">₹${formatNumber(monthly.mobile_allowance || 0)}</span>
-            </div>
-            <div class="summary-item">
-                <span class="label">Misc Amount:</span>
-                <span class="value">₹${formatNumber(monthly.misc_amount || 0)}</span>
-            </div>
-            <div class="summary-item">
-                <span class="label">Misc Remarks:</span>
-                <span class="value">${monthly.misc_remarks || '-'}</span>
-            </div>
-            <div class="summary-item">
-                <span class="label">Total Fixed:</span>
-                <span class="value">₹${formatNumber(monthly.total_fixed || 0)}</span>
-            </div>
-            <div class="summary-item">
-                <span class="label">Total Daily:</span>
-                <span class="value">₹${formatNumber(monthly.total_daily || 0)}</span>
-            </div>
-            <div class="summary-item highlight">
-                <span class="label">Grand Total:</span>
-                <span class="value">₹${formatNumber(monthly.grand_total || 0)}</span>
-            </div>
-        </div>
-
-        <h5 style="margin: 16px 0 8px;">Daily Expenses</h5>
-        <div class="table-container" style="max-height: 250px; overflow-y: auto;">
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>Day Type</th>
-                        <th>KM</th>
-                        <th>KM Fare</th>
-                        <th>Allowance</th>
-                        <th>Total</th>
-                        <th>Remarks</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${daily.length > 0 ? daily.map(d => `
-                        <tr>
-                            <td>${formatDisplayDate(d.date)}</td>
-                            <td>${d.day_type || '-'}</td>
-                            <td>${d.total_km || 0}</td>
-                            <td>₹${d.km_fare || 0}</td>
-                            <td>₹${d.allowance || 0}</td>
-                            <td>₹${d.total_amount || 0}</td>
-                            <td>${d.remarks || '-'}</td>
-                        </tr>
-                    `).join('') : '<tr><td colspan="7" class="text-center">No daily expenses</td></tr>'}
-                </tbody>
-            </table>
-        </div>
-    `;
-
-    if (monthly.status === 'Submitted') {
-        actions.innerHTML = `
-            <button class="btn btn-secondary" onclick="closeModal('expenseDetailModal')">Close</button>
-            <button class="btn btn-danger" onclick="rejectExpense('${monthly.expense_id}'); closeModal('expenseDetailModal');">Reject</button>
-            <button class="btn btn-warning" onclick="closeModal('expenseDetailModal'); openCounterModal('${monthly.expense_id}', ${monthly.grand_total});">Counter</button>
-            <button class="btn btn-success" onclick="approveExpense('${monthly.expense_id}'); closeModal('expenseDetailModal');">Approve</button>
-        `;
-    } else {
-        actions.innerHTML = `<button class="btn btn-secondary" onclick="closeModal('expenseDetailModal')">Close</button>`;
-    }
-
-    modal.classList.add('active');
-}
-
-async function approveExpense(expenseId) {
-    if (!confirm('Approve this expense?')) return;
-
-    showLoading();
-
-    try {
-        const response = await apiCall('approveExpense', {
-            expense_id: expenseId,
-            approved_by: currentUser.User_Code
+        const response = await apiCall('getAllExpenses', {
+            month: month,
+            status: status !== 'all' ? status : ''
         });
-
+        
         hideLoading();
-
-        if (response.success) {
-            loadPendingExpenses();
-            loadDashboard();
-            showToast('Expense approved', 'success');
-        } else {
-            showToast(response.error || 'Error approving expense', 'error');
-        }
-    } catch (error) {
-        hideLoading();
-        showToast('Connection error', 'error');
-    }
-}
-
-async function rejectExpense(expenseId) {
-    if (!confirm('Reject this expense?')) return;
-
-    showLoading();
-
-    try {
-        const response = await apiCall('rejectExpense', {
-            expense_id: expenseId,
-            rejected_by: currentUser.User_Code
-        });
-
-        hideLoading();
-
-        if (response.success) {
-            loadPendingExpenses();
-            loadDashboard();
-            showToast('Expense rejected', 'success');
-        } else {
-            showToast(response.error || 'Error rejecting expense', 'error');
-        }
-    } catch (error) {
-        hideLoading();
-        showToast('Connection error', 'error');
-    }
-}
-
-function openCounterModal(expenseId, originalAmt) {
-    document.getElementById('counterExpenseId').value = expenseId;
-    document.getElementById('counterOriginalAmt').value = '₹' + formatNumber(originalAmt);
-    document.getElementById('counterNewAmt').value = '';
-    document.getElementById('counterRemarks').value = '';
-    document.getElementById('counterModal').classList.add('active');
-}
-
-async function handleCounterSubmit(e) {
-    e.preventDefault();
-    showLoading();
-
-    const expenseId = document.getElementById('counterExpenseId').value;
-    const newAmt = parseFloat(document.getElementById('counterNewAmt').value);
-    const remarks = document.getElementById('counterRemarks').value;
-
-    try {
-        const response = await apiCall('counterExpense', {
-            expense_id: expenseId,
-            new_total: newAmt,
-            remarks: remarks,
-            countered_by: currentUser.User_Code
-        });
-
-        hideLoading();
-
-        if (response.success) {
-            closeModal('counterModal');
-            loadPendingExpenses();
-            showToast('Expense countered', 'success');
-        } else {
-            showToast(response.error || 'Error countering expense', 'error');
-        }
-    } catch (error) {
-        hideLoading();
-        showToast('Connection error', 'error');
-    }
-}
-
-// ============================================
-// HIERARCHY & MAPPING
-// ============================================
-
-async function loadHierarchy() {
-    try {
-        const response = await apiCall('getHierarchy');
-
-        if (response.success) {
-            renderHierarchyTree(response.hierarchy || []);
-        }
-    } catch (error) {
-        console.error('Load hierarchy error:', error);
-    }
-}
-
-function renderHierarchyTree(hierarchy) {
-    const container = document.getElementById('hierarchyTree');
-
-    if (hierarchy.length === 0) {
-        container.innerHTML = '<p class="text-muted">No employees found</p>';
-        return;
-    }
-
-    const empMap = {};
-    hierarchy.forEach(emp => {
-        empMap[emp.emp_id] = { ...emp, children: [] };
-    });
-
-    const roots = [];
-    hierarchy.forEach(emp => {
-        if (emp.reporting_to && empMap[emp.reporting_to]) {
-            empMap[emp.reporting_to].children.push(empMap[emp.emp_id]);
-        } else {
-            roots.push(empMap[emp.emp_id]);
-        }
-    });
-
-    function renderNode(node, level = 0) {
-        return `
-            <div class="hierarchy-node" style="margin-left: ${level * 20}px;">
-                <div class="hierarchy-node-content">
-                    <i class="fas fa-user"></i>
-                    <span>${node.emp_name}</span>
-                    <span class="hierarchy-designation">${node.designation}</span>
-                </div>
-                ${node.children.length > 0 ? node.children.map(child => renderNode(child, level + 1)).join('') : ''}
-            </div>
-        `;
-    }
-
-    container.innerHTML = roots.map(root => renderNode(root)).join('');
-}
-
-async function loadEmployeesForMapping() {
-    if (allEmployees.length === 0) {
-        await loadEmployees();
-    }
-    populateEmployeeDropdowns();
-}
-
-async function loadAreasForMapping() {
-    if (allAreas.length === 0) {
-        await loadAreas();
-    }
-}
-
-async function loadEmployeeAreas() {
-    const empId = document.getElementById('mappingEmployee').value;
-    const container = document.getElementById('mappingAreasList');
-
-    if (!empId) {
-        container.innerHTML = '<p class="text-muted">Select employee first</p>';
-        return;
-    }
-
-    try {
-        const response = await apiCall('getAreaMappings');
         
         if (response.success) {
-            const mappings = response.mappings || [];
-            const empMappings = mappings.filter(m => m.emp_id === empId).map(m => m.area_id);
-
-            const activeAreas = allAreas.filter(a => a.status === 'Active');
-
-            container.innerHTML = activeAreas.map(area => `
-                <div class="checkbox-item">
-                    <input type="checkbox" class="mapping-area-checkbox" value="${area.area_id}" 
-                        id="area_${area.area_id}" ${empMappings.includes(area.area_id) ? 'checked' : ''}>
-                    <label for="area_${area.area_id}">${area.area_name} (${area.city})</label>
-                </div>
-            `).join('');
-        }
-    } catch (error) {
-        console.error('Load employee areas error:', error);
-    }
-}
-
-async function saveAreaMapping() {
-    const empId = document.getElementById('mappingEmployee').value;
-
-    if (!empId) {
-        showToast('Please select an employee', 'error');
-        return;
-    }
-
-    const selectedAreas = [];
-    document.querySelectorAll('.mapping-area-checkbox:checked').forEach(cb => {
-        selectedAreas.push(cb.value);
-    });
-
-    showLoading();
-
-    try {
-        const response = await apiCall('updateAreaMapping', {
-            emp_id: empId,
-            area_ids: selectedAreas
-        });
-
-        hideLoading();
-
-        if (response.success) {
-            showToast('Area mapping saved', 'success');
-        } else {
-            showToast(response.error || 'Error saving mapping', 'error');
+            renderAllExpenses(response.expenses || []);
         }
     } catch (error) {
         hideLoading();
-        showToast('Connection error', 'error');
+        console.error('Load all expenses error:', error);
     }
 }
 
-// ============================================
-// ANNOUNCEMENTS
-// ============================================
-
-async function loadAnnouncements() {
-    showLoading();
-
-    try {
-        const response = await apiCall('getAnnouncements');
-        hideLoading();
-
-        if (response.success) {
-            allAnnouncements = response.announcements || [];
-            renderAnnouncements(allAnnouncements);
-        }
-    } catch (error) {
-        hideLoading();
-        console.error('Load announcements error:', error);
-    }
-}
-
-function renderAnnouncements(announcements) {
-    const container = document.getElementById('announcementsList');
-
-    if (announcements.length === 0) {
-        container.innerHTML = '<p class="text-muted text-center">No announcements</p>';
-        return;
-    }
-
-    container.innerHTML = announcements.map(ann => `
-        <div class="announcement-card ${ann.priority?.toLowerCase()}">
-            <div class="announcement-header">
-                <span class="announcement-title">${ann.title}</span>
-                <span class="announcement-priority ${ann.priority?.toLowerCase()}">${ann.priority || 'Normal'}</span>
-            </div>
-            <p class="announcement-message">${ann.message}</p>
-            <div class="announcement-footer">
-                <span class="announcement-dates">
-                    ${formatDisplayDate(ann.start_date)} - ${formatDisplayDate(ann.end_date)}
-                </span>
-                <div class="announcement-actions">
-                    <button class="btn btn-sm btn-secondary" onclick="editAnnouncement('${ann.announcement_id}')" title="Edit">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <button class="btn btn-sm btn-danger" onclick="deleteAnnouncement('${ann.announcement_id}')" title="Delete">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </div>
-            </div>
-        </div>
-    `).join('');
-}
-
-function openAnnouncementModal(announcementId = null) {
-    const modal = document.getElementById('announcementModal');
-    const form = document.getElementById('announcementForm');
-    const title = document.getElementById('announcementModalTitle');
-
-    form.reset();
-    document.getElementById('announcementId').value = '';
-
-    if (announcementId) {
-        title.textContent = 'Edit Announcement';
-        const ann = allAnnouncements.find(a => a.announcement_id === announcementId);
-        if (ann) {
-            document.getElementById('announcementId').value = ann.announcement_id;
-            document.getElementById('announcementTitle').value = ann.title || '';
-            document.getElementById('announcementMessage').value = ann.message || '';
-            document.getElementById('announcementPriority').value = ann.priority || 'Normal';
-            document.getElementById('announcementStart').value = formatDateForInput(ann.start_date);
-            document.getElementById('announcementEnd').value = formatDateForInput(ann.end_date);
-        }
-    } else {
-        title.textContent = 'New Announcement';
-        const today = new Date();
-        const nextWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
-        document.getElementById('announcementStart').valueAsDate = today;
-        document.getElementById('announcementEnd').valueAsDate = nextWeek;
-    }
-
-    modal.classList.add('active');
-}
-
-function editAnnouncement(announcementId) {
-    openAnnouncementModal(announcementId);
-}
-
-async function handleAnnouncementSubmit(e) {
-    e.preventDefault();
-    showLoading();
-
-    const announcementId = document.getElementById('announcementId').value;
-    const data = {
-        title: document.getElementById('announcementTitle').value,
-        message: document.getElementById('announcementMessage').value,
-        priority: document.getElementById('announcementPriority').value,
-        start_date: document.getElementById('announcementStart').value,
-        end_date: document.getElementById('announcementEnd').value,
-        created_by: currentUser.User_Code
-    };
-
-    try {
-        let response;
-        if (announcementId) {
-            data.announcement_id = announcementId;
-            response = await apiCall('updateAnnouncement', data);
-        } else {
-            response = await apiCall('addAnnouncement', data);
-        }
-
-        hideLoading();
-
-        if (response.success) {
-            closeModal('announcementModal');
-            loadAnnouncements();
-            showToast(announcementId ? 'Announcement updated' : 'Announcement created', 'success');
-        } else {
-            showToast(response.error || 'Error saving announcement', 'error');
-        }
-    } catch (error) {
-        hideLoading();
-        showToast('Connection error', 'error');
-    }
-}
-
-async function deleteAnnouncement(announcementId) {
-    if (!confirm('Delete this announcement?')) return;
-
-    showLoading();
-
-    try {
-        const response = await apiCall('deleteAnnouncement', { announcement_id: announcementId });
-        hideLoading();
-
-        if (response.success) {
-            loadAnnouncements();
-            showToast('Announcement deleted', 'success');
-        } else {
-            showToast(response.error || 'Error deleting announcement', 'error');
-        }
-    } catch (error) {
-        hideLoading();
-        showToast('Connection error', 'error');
-    }
-}
-
-// ============================================
-// REPORTS
-// ============================================
-
-async function generateReport() {
-    const reportType = document.getElementById('reportType').value;
-    const startDate = document.getElementById('reportStartDate').value;
-    const endDate = document.getElementById('reportEndDate').value;
-
-    if (!startDate || !endDate) {
-        showToast('Please select date range', 'error');
-        return;
-    }
-
-    showLoading();
-
-    try {
-        const response = await apiCall('getHOReports', {
-            report_type: reportType,
-            start_date: startDate,
-            end_date: endDate
-        });
-
-        hideLoading();
-
-        if (response.success) {
-            renderReport(reportType, response.report || response.data || []);
-        } else {
-            showToast(response.error || 'Error generating report', 'error');
-        }
-    } catch (error) {
-        hideLoading();
-        showToast('Connection error', 'error');
-    }
-}
-
-function renderPendingExpenses(expenses) {
-    const tbody = document.getElementById('pendingExpensesBody');
-
+function renderAllExpenses(expenses) {
+    const tbody = document.getElementById('allExpensesBody');
+    
     if (expenses.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No pending approvals</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No expenses found</td></tr>';
         return;
     }
-
+    
     tbody.innerHTML = expenses.map(exp => `
         <tr>
             <td>${exp.emp_name || exp.emp_id}</td>
-            <td>${exp.designation || '-'}</td>
             <td>${getMonthName(exp.month)} ${exp.year}</td>
             <td>₹${formatNumber(exp.total_daily || 0)}</td>
             <td>₹${formatNumber(exp.total_fixed || 0)}</td>
             <td>₹${formatNumber(exp.grand_total || 0)}</td>
+            <td><span class="status ${exp.status?.toLowerCase()}">${exp.status}</span></td>
             <td class="actions">
                 <button class="btn btn-sm btn-secondary" onclick="viewExpenseDetails('${exp.expense_id}')" title="View Details">
                     <i class="fas fa-eye"></i>
-                </button>
-                <button class="btn btn-sm btn-success" onclick="approveExpense('${exp.expense_id}')" title="Approve">
-                    <i class="fas fa-check"></i>
-                </button>
-                <button class="btn btn-sm btn-warning" onclick="openCounterModal('${exp.expense_id}', ${exp.grand_total})" title="Counter">
-                    <i class="fas fa-edit"></i>
-                </button>
-                <button class="btn btn-sm btn-danger" onclick="rejectExpense('${exp.expense_id}')" title="Reject">
-                    <i class="fas fa-times"></i>
                 </button>
             </td>
         </tr>
@@ -2703,36 +2273,32 @@ function renderExpenseDetailModal(data) {
     const employee = data.employee;
 
     content.innerHTML = `
-        <div class="expense-detail-header">
-            <h4>${employee?.emp_name || 'Employee'} - ${employee?.designation || ''}</h4>
-            <p>${getMonthName(monthly.month)} ${monthly.year}</p>
+        <div class="expense-detail-header" style="margin-bottom: 16px;">
+            <h4 style="margin: 0;">${employee?.emp_name || 'Employee'} - ${employee?.designation || ''}</h4>
+            <p style="margin: 4px 0; color: #666;">${getMonthName(monthly.month)} ${monthly.year}</p>
             <span class="status ${monthly.status?.toLowerCase()}">${monthly.status}</span>
         </div>
 
-        <div class="expense-summary">
-            <div class="summary-item">
-                <span class="label">Mobile Allowance:</span>
-                <span class="value">₹${formatNumber(monthly.mobile_allowance || 0)}</span>
+        <div class="expense-summary" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 16px;">
+            <div style="padding: 8px; background: #f8f9fa; border-radius: 4px;">
+                <span style="font-size: 11px; color: #666;">Mobile Allowance:</span>
+                <strong style="display: block;">₹${formatNumber(monthly.mobile_allowance || 0)}</strong>
             </div>
-            <div class="summary-item">
-                <span class="label">Misc Amount:</span>
-                <span class="value">₹${formatNumber(monthly.misc_amount || 0)}</span>
+            <div style="padding: 8px; background: #f8f9fa; border-radius: 4px;">
+                <span style="font-size: 11px; color: #666;">Misc Amount:</span>
+                <strong style="display: block;">₹${formatNumber(monthly.misc_amount || 0)}</strong>
             </div>
-            <div class="summary-item">
-                <span class="label">Misc Remarks:</span>
-                <span class="value">${monthly.misc_remarks || '-'}</span>
+            <div style="padding: 8px; background: #f8f9fa; border-radius: 4px;">
+                <span style="font-size: 11px; color: #666;">Total Fixed:</span>
+                <strong style="display: block;">₹${formatNumber(monthly.total_fixed || 0)}</strong>
             </div>
-            <div class="summary-item">
-                <span class="label">Total Fixed:</span>
-                <span class="value">₹${formatNumber(monthly.total_fixed || 0)}</span>
+            <div style="padding: 8px; background: #f8f9fa; border-radius: 4px;">
+                <span style="font-size: 11px; color: #666;">Total Daily:</span>
+                <strong style="display: block;">₹${formatNumber(monthly.total_daily || 0)}</strong>
             </div>
-            <div class="summary-item">
-                <span class="label">Total Daily:</span>
-                <span class="value">₹${formatNumber(monthly.total_daily || 0)}</span>
-            </div>
-            <div class="summary-item highlight">
-                <span class="label">Grand Total:</span>
-                <span class="value">₹${formatNumber(monthly.grand_total || 0)}</span>
+            <div style="padding: 8px; background: #e8f5e9; border-radius: 4px; grid-column: span 2;">
+                <span style="font-size: 11px; color: #666;">Grand Total:</span>
+                <strong style="display: block; font-size: 16px; color: #2e7d32;">₹${formatNumber(monthly.grand_total || 0)}</strong>
             </div>
         </div>
 
@@ -2913,11 +2479,11 @@ function renderHierarchyTree(hierarchy) {
 
     function renderNode(node, level = 0) {
         return `
-            <div class="hierarchy-node" style="margin-left: ${level * 20}px;">
+            <div class="hierarchy-node" style="margin-left: ${level * 24}px;">
                 <div class="hierarchy-node-content">
-                    <i class="fas fa-user"></i>
+                    <i class="fas fa-user" style="color: var(--primary);"></i>
                     <span>${node.emp_name}</span>
-                    <span class="hierarchy-designation">${node.designation}</span>
+                    <span class="hierarchy-designation">${node.designation || ''}</span>
                 </div>
                 ${node.children.length > 0 ? node.children.map(child => renderNode(child, level + 1)).join('') : ''}
             </div>
@@ -2958,11 +2524,16 @@ async function loadEmployeeAreas() {
 
             const activeAreas = allAreas.filter(a => a.status === 'Active');
 
+            if (activeAreas.length === 0) {
+                container.innerHTML = '<p class="text-muted">No active areas found</p>';
+                return;
+            }
+
             container.innerHTML = activeAreas.map(area => `
                 <div class="checkbox-item">
                     <input type="checkbox" class="mapping-area-checkbox" value="${area.area_id}" 
                         id="area_${area.area_id}" ${empMappings.includes(area.area_id) ? 'checked' : ''}>
-                    <label for="area_${area.area_id}">${area.area_name} (${area.city})</label>
+                    <label for="area_${area.area_id}">${area.area_name} (${area.city || '-'})</label>
                 </div>
             `).join('');
         }
@@ -3035,10 +2606,10 @@ function renderAnnouncements(announcements) {
     }
 
     container.innerHTML = announcements.map(ann => `
-        <div class="announcement-card ${ann.priority?.toLowerCase()}">
+        <div class="announcement-card ${ann.priority?.toLowerCase() || ''}">
             <div class="announcement-header">
                 <span class="announcement-title">${ann.title}</span>
-                <span class="announcement-priority ${ann.priority?.toLowerCase()}">${ann.priority || 'Normal'}</span>
+                <span class="announcement-priority ${ann.priority?.toLowerCase() || ''}">${ann.priority || 'Normal'}</span>
             </div>
             <p class="announcement-message">${ann.message}</p>
             <div class="announcement-footer">
@@ -3381,7 +2952,9 @@ function exportToExcel(table) {
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
     link.download = `report_${formatDate(new Date())}.csv`;
+    document.body.appendChild(link);
     link.click();
+    document.body.removeChild(link);
 
     showToast('Report exported to CSV', 'success');
 }
@@ -3557,7 +3130,7 @@ function previewBulkUpload(e) {
         const lines = text.split('\n').slice(0, 6);
 
         const preview = document.getElementById('bulkUploadPreview');
-        preview.innerHTML = '<strong>Preview (first 5 rows):</strong><br><pre>' + lines.join('\n') + '</pre>';
+        preview.innerHTML = '<strong>Preview (first 5 rows):</strong><br><pre style="background:#f5f5f5; padding:10px; border-radius:4px; overflow-x:auto; font-size:11px;">' + lines.join('\n') + '</pre>';
         preview.classList.remove('hidden');
     };
     reader.readAsText(file);
@@ -3672,14 +3245,22 @@ function formatDate(date) {
 
 function formatDisplayDate(dateStr) {
     if (!dateStr) return '-';
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    try {
+        const date = new Date(dateStr);
+        return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    } catch (e) {
+        return dateStr;
+    }
 }
 
 function formatDateForInput(dateStr) {
     if (!dateStr) return '';
-    const date = new Date(dateStr);
-    return date.toISOString().split('T')[0];
+    try {
+        const date = new Date(dateStr);
+        return date.toISOString().split('T')[0];
+    } catch (e) {
+        return '';
+    }
 }
 
 function getMonthName(month) {
