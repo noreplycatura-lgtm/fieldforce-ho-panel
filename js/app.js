@@ -739,7 +739,17 @@ async function loadPerformanceData() {
 // EMPLOYEES
 // ============================================
 
-async function loadEmployees() {
+let employeesLoaded = false;
+
+async function loadEmployees(forceReload = false) {
+    // Agar pehle se loaded hai aur force reload nahi hai, skip karo
+    if (employeesLoaded && allEmployees.length > 0 && !forceReload) {
+        console.log('[Employees] Using cached data');
+        renderEmployeesTable(allEmployees);
+        populateEmployeeDropdowns();
+        return;
+    }
+
     showLoading();
 
     try {
@@ -747,16 +757,20 @@ async function loadEmployees() {
         hideLoading();
 
         if (response.success) {
-            allEmployees = response.employees;
+            allEmployees = response.employees || [];
+            employeesLoaded = true;
+            console.log('[Employees] Loaded:', allEmployees.length);
             renderEmployeesTable(allEmployees);
             populateEmployeeDropdowns();
+        } else {
+            showToast('Failed to load employees', 'error');
         }
     } catch (error) {
         hideLoading();
         console.error('Load employees error:', error);
+        showToast('Connection error', 'error');
     }
 }
-
 function renderEmployeesTable(employees) {
     const tbody = document.getElementById('employeesTableBody');
 
@@ -832,42 +846,57 @@ function populateEmployeeDropdowns() {
     }
 }
 
-function openEmployeeModal(empId = null) {
+async function openEmployeeModal(empId = null) {
     const modal = document.getElementById('employeeModal');
     const form = document.getElementById('employeeForm');
     const title = document.getElementById('employeeModalTitle');
 
+    // Form reset karo
     form.reset();
     document.getElementById('empId').value = '';
 
     if (empId) {
         title.textContent = 'Edit Employee';
         
-        // Find employee from allEmployees array
+        // Pehle allEmployees me check karo
         let emp = allEmployees.find(e => e.emp_id === empId);
         
-        // If not found in cache, try to get from API
+        // Agar nahi mila to API se fetch karo
         if (!emp) {
-            console.log('Employee not in cache, fetching...');
+            console.log('[Edit] Employee not in cache, fetching from API...');
             showLoading();
-            apiCall('getAllEmployees').then(response => {
+            try {
+                const response = await apiCall('getAllEmployees');
                 hideLoading();
                 if (response.success) {
                     allEmployees = response.employees || [];
                     emp = allEmployees.find(e => e.emp_id === empId);
-                    if (emp) {
-                        fillEmployeeForm(emp);
-                    } else {
-                        showToast('Employee not found', 'error');
-                    }
                 }
-            }).catch(err => {
+            } catch (error) {
                 hideLoading();
-                showToast('Error loading employee', 'error');
-            });
-        } else {
-            fillEmployeeForm(emp);
+                showToast('Error loading employee data', 'error');
+                return;
+            }
         }
+        
+        // Agar ab bhi nahi mila
+        if (!emp) {
+            showToast('Employee not found', 'error');
+            return;
+        }
+        
+        // Fields fill karo
+        console.log('[Edit] Filling form with:', emp);
+        document.getElementById('empId').value = emp.emp_id || '';
+        document.getElementById('empName').value = emp.emp_name || '';
+        document.getElementById('empMobile').value = emp.mobile || '';
+        document.getElementById('empDesignation').value = emp.designation || '';
+        document.getElementById('empReportingTo').value = emp.reporting_to || '';
+        document.getElementById('empEmail').value = emp.email || '';
+        document.getElementById('empAddress').value = emp.address || '';
+        document.getElementById('empEmergency').value = emp.emergency_contact || '';
+        document.getElementById('empPassword').value = ''; // Password blank rakho security ke liye
+        
     } else {
         title.textContent = 'Add Employee';
     }
@@ -875,6 +904,10 @@ function openEmployeeModal(empId = null) {
     modal.classList.add('active');
 }
 
+function editEmployee(empId) {
+    console.log('[Edit] Opening employee:', empId);
+    openEmployeeModal(empId);
+}
 function fillEmployeeForm(emp) {
     document.getElementById('empId').value = emp.emp_id || '';
     document.getElementById('empName').value = emp.emp_name || '';
@@ -1073,12 +1106,26 @@ async function rejectCustomer(customerId) {
     }
 }
 
-async function loadAllCustomers() {
+// ============================================
+// CUSTOMERS - FIXED VERSION WITH TRANSFER
+// ============================================
+
+let customersLoaded = false;
+
+async function loadAllCustomers(forceReload = false) {
+    if (customersLoaded && allCustomers.length > 0 && !forceReload) {
+        console.log('[Customers] Using cached data');
+        renderAllCustomers(allCustomers);
+        return;
+    }
+
     try {
         const response = await apiCall('getAllCustomersHO');
         
         if (response.success) {
             allCustomers = response.customers || [];
+            customersLoaded = true;
+            console.log('[Customers] Loaded:', allCustomers.length);
             renderAllCustomers(allCustomers);
         }
     } catch (error) {
@@ -1090,12 +1137,16 @@ function renderAllCustomers(customers) {
     const tbody = document.getElementById('allCustomersBody');
 
     if (customers.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">No customers found</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted">No customers found</td></tr>';
         return;
     }
 
     tbody.innerHTML = customers.map(cust => `
         <tr>
+            <td>
+                <input type="checkbox" class="customer-select-checkbox" value="${cust.customer_id}" 
+                    data-name="${cust.customer_name}" data-emp="${cust.created_by}">
+            </td>
             <td>${cust.customer_code || '-'}</td>
             <td>${cust.customer_name}</td>
             <td>${cust.specialty || '-'}</td>
@@ -1106,8 +1157,76 @@ function renderAllCustomers(customers) {
             <td>${cust.created_by_name || cust.created_by}</td>
         </tr>
     `).join('');
+    
+    // Update selected count
+    updateSelectedCustomerCount();
 }
 
+function updateSelectedCustomerCount() {
+    const selected = document.querySelectorAll('.customer-select-checkbox:checked').length;
+    const countEl = document.getElementById('selectedCustomerCount');
+    if (countEl) {
+        countEl.textContent = selected;
+    }
+}
+
+function selectAllCustomers(checkbox) {
+    document.querySelectorAll('.customer-select-checkbox').forEach(cb => {
+        cb.checked = checkbox.checked;
+    });
+    updateSelectedCustomerCount();
+}
+
+async function transferSelectedCustomers() {
+    const targetEmpId = document.getElementById('transferTargetEmp').value;
+    
+    if (!targetEmpId) {
+        showToast('Please select target employee', 'error');
+        return;
+    }
+    
+    const selectedCustomers = [];
+    document.querySelectorAll('.customer-select-checkbox:checked').forEach(cb => {
+        selectedCustomers.push(cb.value);
+    });
+    
+    if (selectedCustomers.length === 0) {
+        showToast('Please select at least one customer', 'error');
+        return;
+    }
+    
+    if (!confirm(`Transfer ${selectedCustomers.length} customer(s) to selected employee?`)) {
+        return;
+    }
+    
+    showLoading();
+    
+    try {
+        const response = await apiCall('bulkTransferCustomers', {
+            customer_ids: selectedCustomers,
+            new_emp_id: targetEmpId
+        });
+        
+        hideLoading();
+        
+        if (response.success) {
+            showToast(`${selectedCustomers.length} customer(s) transferred successfully`, 'success');
+            // Reload customers
+            customersLoaded = false;
+            loadAllCustomers(true);
+            // Uncheck all
+            document.querySelectorAll('.customer-select-checkbox').forEach(cb => {
+                cb.checked = false;
+            });
+            updateSelectedCustomerCount();
+        } else {
+            showToast(response.error || 'Transfer failed', 'error');
+        }
+    } catch (error) {
+        hideLoading();
+        showToast('Connection error', 'error');
+    }
+}
 function filterCustomers() {
     const search = document.getElementById('custSearch')?.value.toLowerCase() || '';
     const status = document.getElementById('custStatusFilter')?.value || 'all';
