@@ -503,84 +503,41 @@ function navigateTo(page) {
 // Track which pages are already loaded
 let loadedPages = {};
 
-function loadPageData(page, forceReload = false) {
-    // If already loaded and not forcing reload, skip
-    if (loadedPages[page] && !forceReload) {
-        console.log(`[Page] ${page} already loaded, skipping...`);
-        return;
-    }
-    
-    console.log(`[Page] Loading ${page}...`);
-    
+function loadPageData(page) {
     switch(page) {
         case 'dashboard':
             loadDashboard();
-            loadedPages[page] = true;
             break;
         case 'employees':
-            if (allEmployees.length === 0 || forceReload) {
-                loadEmployees();
-            } else {
-                renderEmployeesTable(allEmployees);
-            }
-            loadedPages[page] = true;
+            loadEmployees(false); // false = use cache if available
             break;
         case 'customers':
-            if (allCustomers.length === 0 || forceReload) {
-                loadPendingCustomers();
-                loadAllCustomers();
-                loadEmployeesForTransfer();
-            } else {
-                renderPendingCustomers(allCustomers.filter(c => c.status === 'Pending'));
-                renderAllCustomers(allCustomers);
-            }
-            loadedPages[page] = true;
+            loadPendingCustomers();
+            loadAllCustomers(false);
+            loadEmployeesForDropdown();
             break;
         case 'stockists':
-            if (allStockists.length === 0 || forceReload) {
-                loadStockists();
-            } else {
-                renderStockistsTable(allStockists);
-            }
-            loadedPages[page] = true;
+            loadStockists();
             break;
         case 'products':
-            if (allProducts.length === 0 || forceReload) {
-                loadProducts();
-            } else {
-                renderProductsTable(allProducts);
-            }
-            loadedPages[page] = true;
+            loadProducts();
             break;
         case 'areas':
-            if (allAreas.length === 0 || forceReload) {
-                loadAreas();
-            } else {
-                renderAreasTable(allAreas);
-            }
-            loadedPages[page] = true;
+            loadAreas();
             break;
         case 'expenses':
             loadPendingExpenses();
-            loadedPages[page] = true;
             break;
         case 'hierarchy':
             loadHierarchy();
             loadEmployeesForMapping();
             loadAreasForMapping();
-            loadedPages[page] = true;
             break;
         case 'announcements':
-            if (allAnnouncements.length === 0 || forceReload) {
-                loadAnnouncements();
-            } else {
-                renderAnnouncements(allAnnouncements);
-            }
-            loadedPages[page] = true;
+            loadAnnouncements();
             break;
         case 'settings':
             loadSettings();
-            loadedPages[page] = true;
             break;
     }
 }
@@ -589,12 +546,49 @@ function refreshCurrentPage() {
     const activePage = document.querySelector('.nav-item.active');
     if (activePage) {
         const page = activePage.dataset.page;
-        loadedPages[page] = false; // Force reload
-        loadPageData(page, true);
+        
+        // Reset cache flags
+        if (page === 'employees') employeesLoaded = false;
+        if (page === 'customers') customersLoaded = false;
+        
+        // Force reload
+        switch(page) {
+            case 'employees':
+                loadEmployees(true);
+                break;
+            case 'customers':
+                loadPendingCustomers();
+                loadAllCustomers(true);
+                break;
+            default:
+                loadPageData(page);
+        }
+        
         showToast('Data refreshed', 'success');
     }
 }
 
+async function loadEmployeesForDropdown() {
+    if (allEmployees.length === 0) {
+        try {
+            const response = await apiCall('getAllEmployees');
+            if (response.success) {
+                allEmployees = response.employees || [];
+            }
+        } catch (error) {
+            console.error('Error loading employees for dropdown');
+        }
+    }
+    
+    const activeEmployees = allEmployees.filter(e => e.status === 'Active');
+    
+    // Transfer target dropdown
+    const transferTarget = document.getElementById('transferTargetEmp');
+    if (transferTarget) {
+        transferTarget.innerHTML = '<option value="">-- Select Employee --</option>' + 
+            activeEmployees.map(e => `<option value="${e.emp_id}">${e.emp_name} (${e.designation})</option>`).join('');
+    }
+}
 function toggleSidebar() {
     document.getElementById('sidebar').classList.toggle('collapsed');
 }
