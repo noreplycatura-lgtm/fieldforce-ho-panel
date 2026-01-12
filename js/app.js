@@ -504,17 +504,19 @@ function navigateTo(page) {
 let loadedPages = {};
 
 function loadPageData(page) {
+    console.log('[Page] Loading:', page);
+    
     switch(page) {
         case 'dashboard':
             loadDashboard();
             break;
         case 'employees':
-            loadEmployees(false); // false = use cache if available
+            loadEmployees();
             break;
         case 'customers':
             loadPendingCustomers();
-            loadAllCustomers(false);
-            loadEmployeesForDropdown();
+            loadAllCustomers();
+            loadTransferPageData();
             break;
         case 'stockists':
             loadStockists();
@@ -541,7 +543,6 @@ function loadPageData(page) {
             break;
     }
 }
-
 function refreshCurrentPage() {
     const activePage = document.querySelector('.nav-item.active');
     if (activePage) {
@@ -834,26 +835,33 @@ async function openEmployeeModal(empId = null) {
     const form = document.getElementById('employeeForm');
     const title = document.getElementById('employeeModalTitle');
 
-    // Form reset karo
+    // Form reset
     form.reset();
     document.getElementById('empId').value = '';
+    document.getElementById('empName').value = '';
+    document.getElementById('empMobile').value = '';
+    document.getElementById('empDesignation').value = '';
+    document.getElementById('empReportingTo').value = '';
+    document.getElementById('empEmail').value = '';
+    document.getElementById('empAddress').value = '';
+    document.getElementById('empEmergency').value = '';
+    document.getElementById('empPassword').value = '';
 
     if (empId) {
         title.textContent = 'Edit Employee';
+        console.log('[Edit] Looking for employee:', empId);
+        console.log('[Edit] All employees:', allEmployees);
         
-        // Pehle allEmployees me check karo
-        let emp = allEmployees.find(e => e.emp_id === empId);
-        
-        // Agar nahi mila to API se fetch karo
-        if (!emp) {
-            console.log('[Edit] Employee not in cache, fetching from API...');
+        // Agar allEmployees empty hai to pehle load karo
+        if (!allEmployees || allEmployees.length === 0) {
+            console.log('[Edit] Employees not loaded, fetching...');
             showLoading();
             try {
                 const response = await apiCall('getAllEmployees');
                 hideLoading();
                 if (response.success) {
                     allEmployees = response.employees || [];
-                    emp = allEmployees.find(e => e.emp_id === empId);
+                    console.log('[Edit] Employees loaded:', allEmployees.length);
                 }
             } catch (error) {
                 hideLoading();
@@ -862,14 +870,16 @@ async function openEmployeeModal(empId = null) {
             }
         }
         
-        // Agar ab bhi nahi mila
+        // Ab employee dhundho
+        const emp = allEmployees.find(e => e.emp_id === empId);
+        console.log('[Edit] Found employee:', emp);
+        
         if (!emp) {
-            showToast('Employee not found', 'error');
+            showToast('Employee not found: ' + empId, 'error');
             return;
         }
         
         // Fields fill karo
-        console.log('[Edit] Filling form with:', emp);
         document.getElementById('empId').value = emp.emp_id || '';
         document.getElementById('empName').value = emp.emp_name || '';
         document.getElementById('empMobile').value = emp.mobile || '';
@@ -878,7 +888,9 @@ async function openEmployeeModal(empId = null) {
         document.getElementById('empEmail').value = emp.email || '';
         document.getElementById('empAddress').value = emp.address || '';
         document.getElementById('empEmergency').value = emp.emergency_contact || '';
-        document.getElementById('empPassword').value = ''; // Password blank rakho security ke liye
+        // Password blank rakho security ke liye
+        
+        console.log('[Edit] Form filled successfully');
         
     } else {
         title.textContent = 'Add Employee';
@@ -888,7 +900,7 @@ async function openEmployeeModal(empId = null) {
 }
 
 function editEmployee(empId) {
-    console.log('[Edit] Opening employee:', empId);
+    console.log('[Edit] Button clicked for:', empId);
     openEmployeeModal(empId);
 }
 function fillEmployeeForm(emp) {
