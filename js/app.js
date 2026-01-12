@@ -1329,3 +1329,1032 @@ async function deleteArea(areaId) {
         showToast('Connection error', 'error');
     }
 }
+// ============================================
+// EXPENSES
+// ============================================
+
+async function loadPendingExpenses() {
+    try {
+        const response = await apiCall('getPendingExpenses');
+        
+        if (response.success) {
+            renderPendingExpenses(response.expenses || []);
+        }
+    } catch (error) {
+        console.error('Load pending expenses error:', error);
+    }
+}
+
+function renderPendingExpenses(expenses) {
+    const tbody = document.getElementById('pendingExpensesBody');
+
+    if (expenses.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No pending approvals</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = expenses.map(exp => `
+        <tr>
+            <td>${exp.emp_name || exp.emp_id}</td>
+            <td>${exp.designation || '-'}</td>
+            <td>${getMonthName(exp.month)} ${exp.year}</td>
+            <td>₹${formatNumber(exp.total_daily || 0)}</td>
+            <td>₹${formatNumber(exp.total_fixed || 0)}</td>
+            <td>₹${formatNumber(exp.grand_total || 0)}</td>
+            <td class="actions">
+                <button class="btn btn-sm btn-secondary" onclick="viewExpenseDetails('${exp.expense_id}')" title="View Details">
+                    <i class="fas fa-eye"></i>
+                </button>
+                <button class="btn btn-sm btn-success" onclick="approveExpense('${exp.expense_id}')" title="Approve">
+                    <i class="fas fa-check"></i>
+                </button>
+                <button class="btn btn-sm btn-warning" onclick="openCounterModal('${exp.expense_id}', ${exp.grand_total})" title="Counter">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button class="btn btn-sm btn-danger" onclick="rejectExpense('${exp.expense_id}')" title="Reject">
+                    <i class="fas fa-times"></i>
+                </button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+async function viewExpenseDetails(expenseId) {
+    showLoading();
+
+    try {
+        const response = await apiCall('getExpenseDetails', { expense_id: expenseId });
+        hideLoading();
+
+        if (response.success) {
+            renderExpenseDetailModal(response);
+        } else {
+            showToast(response.error || 'Error loading details', 'error');
+        }
+    } catch (error) {
+        hideLoading();
+        showToast('Connection error', 'error');
+    }
+}
+
+function renderExpenseDetailModal(data) {
+    const modal = document.getElementById('expenseDetailModal');
+    const content = document.getElementById('expenseDetailContent');
+    const actions = document.getElementById('expenseDetailActions');
+
+    const monthly = data.monthly;
+    const daily = data.daily || [];
+    const employee = data.employee;
+
+    content.innerHTML = `
+        <div class="expense-detail-header">
+            <h4>${employee?.emp_name || 'Employee'} - ${employee?.designation || ''}</h4>
+            <p>${getMonthName(monthly.month)} ${monthly.year}</p>
+            <span class="status ${monthly.status?.toLowerCase()}">${monthly.status}</span>
+        </div>
+
+        <div class="expense-summary">
+            <div class="summary-item">
+                <span class="label">Mobile Allowance:</span>
+                <span class="value">₹${formatNumber(monthly.mobile_allowance || 0)}</span>
+            </div>
+            <div class="summary-item">
+                <span class="label">Misc Amount:</span>
+                <span class="value">₹${formatNumber(monthly.misc_amount || 0)}</span>
+            </div>
+            <div class="summary-item">
+                <span class="label">Misc Remarks:</span>
+                <span class="value">${monthly.misc_remarks || '-'}</span>
+            </div>
+            <div class="summary-item">
+                <span class="label">Total Fixed:</span>
+                <span class="value">₹${formatNumber(monthly.total_fixed || 0)}</span>
+            </div>
+            <div class="summary-item">
+                <span class="label">Total Daily:</span>
+                <span class="value">₹${formatNumber(monthly.total_daily || 0)}</span>
+            </div>
+            <div class="summary-item highlight">
+                <span class="label">Grand Total:</span>
+                <span class="value">₹${formatNumber(monthly.grand_total || 0)}</span>
+            </div>
+        </div>
+
+        <h5 style="margin: 16px 0 8px;">Daily Expenses</h5>
+        <div class="table-container" style="max-height: 250px; overflow-y: auto;">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Day Type</th>
+                        <th>KM</th>
+                        <th>KM Fare</th>
+                        <th>Allowance</th>
+                        <th>Total</th>
+                        <th>Remarks</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${daily.length > 0 ? daily.map(d => `
+                        <tr>
+                            <td>${formatDisplayDate(d.date)}</td>
+                            <td>${d.day_type || '-'}</td>
+                            <td>${d.total_km || 0}</td>
+                            <td>₹${d.km_fare || 0}</td>
+                            <td>₹${d.allowance || 0}</td>
+                            <td>₹${d.total_amount || 0}</td>
+                            <td>${d.remarks || '-'}</td>
+                        </tr>
+                    `).join('') : '<tr><td colspan="7" class="text-center">No daily expenses</td></tr>'}
+                </tbody>
+            </table>
+        </div>
+    `;
+
+    if (monthly.status === 'Submitted') {
+        actions.innerHTML = `
+            <button class="btn btn-secondary" onclick="closeModal('expenseDetailModal')">Close</button>
+            <button class="btn btn-danger" onclick="rejectExpense('${monthly.expense_id}'); closeModal('expenseDetailModal');">Reject</button>
+            <button class="btn btn-warning" onclick="closeModal('expenseDetailModal'); openCounterModal('${monthly.expense_id}', ${monthly.grand_total});">Counter</button>
+            <button class="btn btn-success" onclick="approveExpense('${monthly.expense_id}'); closeModal('expenseDetailModal');">Approve</button>
+        `;
+    } else {
+        actions.innerHTML = `<button class="btn btn-secondary" onclick="closeModal('expenseDetailModal')">Close</button>`;
+    }
+
+    modal.classList.add('active');
+}
+
+async function approveExpense(expenseId) {
+    if (!confirm('Approve this expense?')) return;
+
+    showLoading();
+
+    try {
+        const response = await apiCall('approveExpense', {
+            expense_id: expenseId,
+            approved_by: currentUser.User_Code
+        });
+
+        hideLoading();
+
+        if (response.success) {
+            loadPendingExpenses();
+            loadDashboard();
+            showToast('Expense approved', 'success');
+        } else {
+            showToast(response.error || 'Error approving expense', 'error');
+        }
+    } catch (error) {
+        hideLoading();
+        showToast('Connection error', 'error');
+    }
+}
+
+async function rejectExpense(expenseId) {
+    if (!confirm('Reject this expense?')) return;
+
+    showLoading();
+
+    try {
+        const response = await apiCall('rejectExpense', {
+            expense_id: expenseId,
+            rejected_by: currentUser.User_Code
+        });
+
+        hideLoading();
+
+        if (response.success) {
+            loadPendingExpenses();
+            loadDashboard();
+            showToast('Expense rejected', 'success');
+        } else {
+            showToast(response.error || 'Error rejecting expense', 'error');
+        }
+    } catch (error) {
+        hideLoading();
+        showToast('Connection error', 'error');
+    }
+}
+
+function openCounterModal(expenseId, originalAmt) {
+    document.getElementById('counterExpenseId').value = expenseId;
+    document.getElementById('counterOriginalAmt').value = '₹' + formatNumber(originalAmt);
+    document.getElementById('counterNewAmt').value = '';
+    document.getElementById('counterRemarks').value = '';
+    document.getElementById('counterModal').classList.add('active');
+}
+
+async function handleCounterSubmit(e) {
+    e.preventDefault();
+    showLoading();
+
+    const expenseId = document.getElementById('counterExpenseId').value;
+    const newAmt = parseFloat(document.getElementById('counterNewAmt').value);
+    const remarks = document.getElementById('counterRemarks').value;
+
+    try {
+        const response = await apiCall('counterExpense', {
+            expense_id: expenseId,
+            new_total: newAmt,
+            remarks: remarks,
+            countered_by: currentUser.User_Code
+        });
+
+        hideLoading();
+
+        if (response.success) {
+            closeModal('counterModal');
+            loadPendingExpenses();
+            showToast('Expense countered', 'success');
+        } else {
+            showToast(response.error || 'Error countering expense', 'error');
+        }
+    } catch (error) {
+        hideLoading();
+        showToast('Connection error', 'error');
+    }
+}
+
+// ============================================
+// HIERARCHY & MAPPING
+// ============================================
+
+async function loadHierarchy() {
+    try {
+        const response = await apiCall('getHierarchy');
+        
+        if (response.success) {
+            renderHierarchyTree(response.hierarchy || []);
+        }
+    } catch (error) {
+        console.error('Load hierarchy error:', error);
+    }
+}
+
+function renderHierarchyTree(hierarchy) {
+    const container = document.getElementById('hierarchyTree');
+
+    if (hierarchy.length === 0) {
+        container.innerHTML = '<p class="text-muted">No employees found</p>';
+        return;
+    }
+
+    // Build tree structure
+    const empMap = {};
+    hierarchy.forEach(emp => {
+        empMap[emp.emp_id] = { ...emp, children: [] };
+    });
+
+    const roots = [];
+    hierarchy.forEach(emp => {
+        if (emp.reporting_to && empMap[emp.reporting_to]) {
+            empMap[emp.reporting_to].children.push(empMap[emp.emp_id]);
+        } else {
+            roots.push(empMap[emp.emp_id]);
+        }
+    });
+
+    function renderNode(node, level = 0) {
+        return `
+            <div class="hierarchy-node" style="margin-left: ${level * 20}px;">
+                <div class="hierarchy-node-content">
+                    <i class="fas fa-user"></i>
+                    <span>${node.emp_name}</span>
+                    <span class="hierarchy-designation">${node.designation}</span>
+                </div>
+                ${node.children.length > 0 ? node.children.map(child => renderNode(child, level + 1)).join('') : ''}
+            </div>
+        `;
+    }
+
+    container.innerHTML = roots.map(root => renderNode(root)).join('');
+}
+
+async function loadEmployeesForMapping() {
+    if (allEmployees.length === 0) {
+        await loadEmployees();
+    }
+    populateEmployeeDropdowns();
+}
+
+async function loadAreasForMapping() {
+    if (allAreas.length === 0) {
+        await loadAreas();
+    }
+}
+
+async function loadEmployeeAreas() {
+    const empId = document.getElementById('mappingEmployee').value;
+    const container = document.getElementById('mappingAreasList');
+
+    if (!empId) {
+        container.innerHTML = '<p class="text-muted">Select employee first</p>';
+        return;
+    }
+
+    try {
+        const response = await apiCall('getAreaMappings');
+        
+        if (response.success) {
+            const mappings = response.mappings || [];
+            const empMappings = mappings.filter(m => m.emp_id === empId).map(m => m.area_id);
+
+            const activeAreas = allAreas.filter(a => a.status === 'Active');
+
+            container.innerHTML = activeAreas.map(area => `
+                <div class="checkbox-item">
+                    <input type="checkbox" class="mapping-area-checkbox" value="${area.area_id}" 
+                        id="area_${area.area_id}" ${empMappings.includes(area.area_id) ? 'checked' : ''}>
+                    <label for="area_${area.area_id}">${area.area_name} (${area.city})</label>
+                </div>
+            `).join('');
+        }
+    } catch (error) {
+        console.error('Load employee areas error:', error);
+    }
+}
+
+async function saveAreaMapping() {
+    const empId = document.getElementById('mappingEmployee').value;
+    
+    if (!empId) {
+        showToast('Please select an employee', 'error');
+        return;
+    }
+
+    const selectedAreas = [];
+    document.querySelectorAll('.mapping-area-checkbox:checked').forEach(cb => {
+        selectedAreas.push(cb.value);
+    });
+
+    showLoading();
+
+    try {
+        const response = await apiCall('updateAreaMapping', {
+            emp_id: empId,
+            area_ids: selectedAreas
+        });
+
+        hideLoading();
+
+        if (response.success) {
+            showToast('Area mapping saved', 'success');
+        } else {
+            showToast(response.error || 'Error saving mapping', 'error');
+        }
+    } catch (error) {
+        hideLoading();
+        showToast('Connection error', 'error');
+    }
+}
+
+// ============================================
+// ANNOUNCEMENTS
+// ============================================
+
+async function loadAnnouncements() {
+    showLoading();
+
+    try {
+        const response = await apiCall('getAnnouncements');
+        hideLoading();
+
+        if (response.success) {
+            allAnnouncements = response.announcements || [];
+            renderAnnouncements(allAnnouncements);
+        }
+    } catch (error) {
+        hideLoading();
+        console.error('Load announcements error:', error);
+    }
+}
+
+function renderAnnouncements(announcements) {
+    const container = document.getElementById('announcementsList');
+
+    if (announcements.length === 0) {
+        container.innerHTML = '<p class="text-muted text-center">No announcements</p>';
+        return;
+    }
+
+    container.innerHTML = announcements.map(ann => `
+        <div class="announcement-card ${ann.priority?.toLowerCase()}">
+            <div class="announcement-header">
+                <span class="announcement-title">${ann.title}</span>
+                <span class="announcement-priority ${ann.priority?.toLowerCase()}">${ann.priority || 'Normal'}</span>
+            </div>
+            <p class="announcement-message">${ann.message}</p>
+            <div class="announcement-footer">
+                <span class="announcement-dates">
+                    ${formatDisplayDate(ann.start_date)} - ${formatDisplayDate(ann.end_date)}
+                </span>
+                <div class="announcement-actions">
+                    <button class="btn btn-sm btn-secondary" onclick="editAnnouncement('${ann.announcement_id}')" title="Edit">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteAnnouncement('${ann.announcement_id}')" title="Delete">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function openAnnouncementModal(announcementId = null) {
+    const modal = document.getElementById('announcementModal');
+    const form = document.getElementById('announcementForm');
+    const title = document.getElementById('announcementModalTitle');
+
+    form.reset();
+    document.getElementById('announcementId').value = '';
+
+    if (announcementId) {
+        title.textContent = 'Edit Announcement';
+        const ann = allAnnouncements.find(a => a.announcement_id === announcementId);
+        if (ann) {
+            document.getElementById('announcementId').value = ann.announcement_id;
+            document.getElementById('announcementTitle').value = ann.title || '';
+            document.getElementById('announcementMessage').value = ann.message || '';
+            document.getElementById('announcementPriority').value = ann.priority || 'Normal';
+            document.getElementById('announcementStart').value = formatDateForInput(ann.start_date);
+            document.getElementById('announcementEnd').value = formatDateForInput(ann.end_date);
+        }
+    } else {
+        title.textContent = 'New Announcement';
+        // Set default dates
+        const today = new Date();
+        const nextWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+        document.getElementById('announcementStart').valueAsDate = today;
+        document.getElementById('announcementEnd').valueAsDate = nextWeek;
+    }
+
+    modal.classList.add('active');
+}
+
+function editAnnouncement(announcementId) {
+    openAnnouncementModal(announcementId);
+}
+
+async function handleAnnouncementSubmit(e) {
+    e.preventDefault();
+    showLoading();
+
+    const announcementId = document.getElementById('announcementId').value;
+    const data = {
+        title: document.getElementById('announcementTitle').value,
+        message: document.getElementById('announcementMessage').value,
+        priority: document.getElementById('announcementPriority').value,
+        start_date: document.getElementById('announcementStart').value,
+        end_date: document.getElementById('announcementEnd').value,
+        created_by: currentUser.User_Code
+    };
+
+    try {
+        let response;
+        if (announcementId) {
+            data.announcement_id = announcementId;
+            response = await apiCall('updateAnnouncement', data);
+        } else {
+            response = await apiCall('addAnnouncement', data);
+        }
+
+        hideLoading();
+
+        if (response.success) {
+            closeModal('announcementModal');
+            loadAnnouncements();
+            showToast(announcementId ? 'Announcement updated' : 'Announcement created', 'success');
+        } else {
+            showToast(response.error || 'Error saving announcement', 'error');
+        }
+    } catch (error) {
+        hideLoading();
+        showToast('Connection error', 'error');
+    }
+}
+
+async function deleteAnnouncement(announcementId) {
+    if (!confirm('Delete this announcement?')) return;
+
+    showLoading();
+
+    try {
+        const response = await apiCall('deleteAnnouncement', { announcement_id: announcementId });
+        hideLoading();
+
+        if (response.success) {
+            loadAnnouncements();
+            showToast('Announcement deleted', 'success');
+        } else {
+            showToast(response.error || 'Error deleting announcement', 'error');
+        }
+    } catch (error) {
+        hideLoading();
+        showToast('Connection error', 'error');
+    }
+}
+
+// ============================================
+// REPORTS
+// ============================================
+
+async function generateReport() {
+    const reportType = document.getElementById('reportType').value;
+    const startDate = document.getElementById('reportStartDate').value;
+    const endDate = document.getElementById('reportEndDate').value;
+
+    if (!startDate || !endDate) {
+        showToast('Please select date range', 'error');
+        return;
+    }
+
+    showLoading();
+
+    try {
+        const response = await apiCall('getHOReports', {
+            report_type: reportType,
+            start_date: startDate,
+            end_date: endDate
+        });
+
+        hideLoading();
+
+        if (response.success) {
+            renderReport(reportType, response.report || response.data || []);
+        } else {
+            showToast(response.error || 'Error generating report', 'error');
+        }
+    } catch (error) {
+        hideLoading();
+        showToast('Connection error', 'error');
+    }
+}
+
+function renderReport(reportType, data) {
+    const container = document.getElementById('reportContent');
+
+    if (data.length === 0) {
+        container.innerHTML = '<p class="text-muted text-center">No data found for selected criteria</p>';
+        return;
+    }
+
+    let tableHTML = '';
+
+    switch(reportType) {
+        case 'daily_summary':
+            tableHTML = `
+                <table class="report-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Punches</th>
+                            <th>Visits</th>
+                            <th>Orders</th>
+                            <th>POB (₹)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${data.map(row => `
+                            <tr>
+                                <td>${formatDisplayDate(row.date)}</td>
+                                <td>${row.punches || 0}</td>
+                                <td>${row.visits || 0}</td>
+                                <td>${row.orders || 0}</td>
+                                <td>₹${formatNumber(row.pob || 0)}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <th>Total</th>
+                            <th>${data.reduce((s, r) => s + (r.punches || 0), 0)}</th>
+                            <th>${data.reduce((s, r) => s + (r.visits || 0), 0)}</th>
+                            <th>${data.reduce((s, r) => s + (r.orders || 0), 0)}</th>
+                            <th>₹${formatNumber(data.reduce((s, r) => s + (r.pob || 0), 0))}</th>
+                        </tr>
+                    </tfoot>
+                </table>
+            `;
+            break;
+
+        case 'employee_performance':
+            tableHTML = `
+                <table class="report-table">
+                    <thead>
+                        <tr>
+                            <th>Employee</th>
+                            <th>Designation</th>
+                            <th>Total Calls</th>
+                            <th>Productive</th>
+                            <th>Productivity %</th>
+                            <th>Total POB (₹)</th>
+                            <th>Avg Order (₹)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${data.map(row => `
+                            <tr>
+                                <td>${row.emp_name}</td>
+                                <td>${row.designation || '-'}</td>
+                                <td>${row.total_calls || 0}</td>
+                                <td>${row.productive_calls || 0}</td>
+                                <td>${row.productivity || 0}%</td>
+                                <td>₹${formatNumber(row.total_pob || 0)}</td>
+                                <td>₹${formatNumber(row.avg_order_value || 0)}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+            break;
+
+        case 'area_wise':
+            tableHTML = `
+                <table class="report-table">
+                    <thead>
+                        <tr>
+                            <th>Area</th>
+                            <th>City</th>
+                            <th>Total Calls</th>
+                            <th>Productive</th>
+                            <th>Total POB (₹)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${data.map(row => `
+                            <tr>
+                                <td>${row.area_name}</td>
+                                <td>${row.city || '-'}</td>
+                                <td>${row.total_calls || 0}</td>
+                                <td>${row.productive_calls || 0}</td>
+                                <td>₹${formatNumber(row.total_pob || 0)}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+            break;
+
+        case 'product_wise':
+            tableHTML = `
+                <table class="report-table">
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>Orders Count</th>
+                            <th>Total Qty</th>
+                            <th>Total Amount (₹)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${data.map(row => `
+                            <tr>
+                                <td>${row.product_name}</td>
+                                <td>${row.order_count || 0}</td>
+                                <td>${row.total_quantity || 0}</td>
+                                <td>₹${formatNumber(row.total_amount || 0)}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+            break;
+
+        case 'stockist_wise':
+            tableHTML = `
+                <table class="report-table">
+                    <thead>
+                        <tr>
+                            <th>Stockist</th>
+                            <th>City</th>
+                            <th>Total Orders</th>
+                            <th>Total Amount (₹)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${data.map(row => `
+                            <tr>
+                                <td>${row.stockist_name}</td>
+                                <td>${row.city || '-'}</td>
+                                <td>${row.total_orders || 0}</td>
+                                <td>₹${formatNumber(row.total_amount || 0)}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+            break;
+    }
+
+    container.innerHTML = tableHTML;
+}
+
+function exportReport(format) {
+    const content = document.getElementById('reportContent');
+    const table = content.querySelector('table');
+
+    if (!table) {
+        showToast('Generate report first', 'error');
+        return;
+    }
+
+    if (format === 'excel') {
+        exportToExcel(table);
+    } else if (format === 'pdf') {
+        exportToPDF(table);
+    }
+}
+
+function exportToExcel(table) {
+    let csv = '';
+    const rows = table.querySelectorAll('tr');
+
+    rows.forEach(row => {
+        const cells = row.querySelectorAll('th, td');
+        const rowData = [];
+        cells.forEach(cell => {
+            let text = cell.textContent.replace(/"/g, '""');
+            rowData.push(`"${text}"`);
+        });
+        csv += rowData.join(',') + '\n';
+    });
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `report_${formatDate(new Date())}.csv`;
+    link.click();
+
+    showToast('Report exported to CSV', 'success');
+}
+
+function exportToPDF(table) {
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+        <html>
+        <head>
+            <title>Report</title>
+            <style>
+                body { font-family: Arial, sans-serif; font-size: 12px; padding: 20px; }
+                table { width: 100%; border-collapse: collapse; }
+                th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                th { background: #f5f5f5; }
+                h1 { font-size: 16px; margin-bottom: 10px; }
+            </style>
+        </head>
+        <body>
+            <h1>Report - ${new Date().toLocaleDateString()}</h1>
+            ${table.outerHTML}
+        </body>
+        </html>
+    `);
+    printWindow.document.close();
+    printWindow.print();
+
+    showToast('Print dialog opened', 'success');
+}
+
+// ============================================
+// SETTINGS
+// ============================================
+
+async function loadSettings() {
+    showLoading();
+
+    try {
+        const response = await apiCall('getSettings');
+        hideLoading();
+
+        if (response.success) {
+            const settings = response.settings || [];
+            settings.forEach(setting => {
+                const input = document.getElementById('setting_' + setting.setting_name);
+                if (input) {
+                    input.value = setting.setting_value;
+                }
+            });
+        }
+    } catch (error) {
+        hideLoading();
+        console.error('Load settings error:', error);
+    }
+}
+
+async function saveSettings() {
+    showLoading();
+
+    const settings = {
+        default_radius: document.getElementById('setting_default_radius').value,
+        max_radius: document.getElementById('setting_max_radius').value,
+        hq_allowance: document.getElementById('setting_hq_allowance').value,
+        ex_hq_allowance: document.getElementById('setting_ex_hq_allowance').value,
+        outstation_allowance: document.getElementById('setting_outstation_allowance').value,
+        km_rate: document.getElementById('setting_km_rate').value,
+        mobile_allowance: document.getElementById('setting_mobile_allowance').value,
+        photo_max_size: document.getElementById('setting_photo_max_size').value
+    };
+
+    try {
+        const response = await apiCall('updateSettings', { settings: settings });
+        hideLoading();
+
+        if (response.success) {
+            showToast('Settings saved', 'success');
+        } else {
+            showToast(response.error || 'Error saving settings', 'error');
+        }
+    } catch (error) {
+        hideLoading();
+        showToast('Connection error', 'error');
+    }
+}
+
+async function createBackup() {
+    if (!confirm('Create a backup of all data?')) return;
+
+    showLoading();
+
+    try {
+        const response = await apiCall('createBackup');
+        hideLoading();
+
+        if (response.success) {
+            showToast(response.message || 'Backup created', 'success');
+        } else {
+            showToast(response.error || 'Error creating backup', 'error');
+        }
+    } catch (error) {
+        hideLoading();
+        showToast('Connection error', 'error');
+    }
+}
+
+// ============================================
+// BULK UPLOAD
+// ============================================
+
+function openBulkUploadModal(type) {
+    currentBulkUploadType = type;
+    const modal = document.getElementById('bulkUploadModal');
+    const title = document.getElementById('bulkUploadTitle');
+    const format = document.getElementById('bulkUploadFormat');
+
+    title.textContent = `Bulk Upload ${type.charAt(0).toUpperCase() + type.slice(1)}`;
+
+    if (type === 'employees') {
+        format.textContent = 'emp_name, mobile, designation, reporting_to, email, password';
+    } else if (type === 'products') {
+        format.textContent = 'product_name, product_code, category, unit, mrp, pts, ptr';
+    }
+
+    document.getElementById('bulkUploadFile').value = '';
+    document.getElementById('bulkUploadPreview').classList.add('hidden');
+
+    modal.classList.add('active');
+}
+
+function previewBulkUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(event) {
+        const text = event.target.result;
+        const lines = text.split('\n').slice(0, 6); // First 5 data rows + header
+
+        const preview = document.getElementById('bulkUploadPreview');
+        preview.innerHTML = '<strong>Preview (first 5 rows):</strong><br><pre>' + lines.join('\n') + '</pre>';
+        preview.classList.remove('hidden');
+    };
+    reader.readAsText(file);
+}
+
+async function processBulkUpload() {
+    const fileInput = document.getElementById('bulkUploadFile');
+    const file = fileInput.files[0];
+
+    if (!file) {
+        showToast('Please select a file', 'error');
+        return;
+    }
+
+    showLoading();
+
+    const reader = new FileReader();
+    reader.onload = async function(event) {
+        const text = event.target.result;
+        const lines = text.split('\n').filter(line => line.trim());
+        
+        if (lines.length < 2) {
+            hideLoading();
+            showToast('File is empty or invalid', 'error');
+            return;
+        }
+
+        const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+        const data = [];
+
+        for (let i = 1; i < lines.length; i++) {
+            const values = lines[i].split(',').map(v => v.trim());
+            const row = {};
+            headers.forEach((header, index) => {
+                row[header] = values[index] || '';
+            });
+            data.push(row);
+        }
+
+        try {
+            let response;
+            if (currentBulkUploadType === 'employees') {
+                response = await apiCall('bulkUploadEmployees', { employees: data });
+            } else if (currentBulkUploadType === 'products') {
+                response = await apiCall('bulkUploadProducts', { products: data });
+            }
+
+            hideLoading();
+
+            if (response.success) {
+                closeModal('bulkUploadModal');
+                if (currentBulkUploadType === 'employees') {
+                    loadEmployees();
+                } else if (currentBulkUploadType === 'products') {
+                    loadProducts();
+                }
+                showToast(response.message || 'Upload successful', 'success');
+            } else {
+                showToast(response.error || 'Upload failed', 'error');
+            }
+        } catch (error) {
+            hideLoading();
+            showToast('Connection error', 'error');
+        }
+    };
+
+    reader.readAsText(file);
+}
+
+// ============================================
+// UTILITY FUNCTIONS
+// ============================================
+
+function showLoading() {
+    document.getElementById('loadingOverlay').classList.remove('hidden');
+}
+
+function hideLoading() {
+    document.getElementById('loadingOverlay').classList.add('hidden');
+}
+
+function showToast(message, type = '') {
+    const toast = document.getElementById('toast');
+    const toastMessage = document.getElementById('toastMessage');
+
+    toast.className = 'toast';
+    if (type) toast.classList.add(type);
+
+    toastMessage.textContent = message;
+    toast.classList.remove('hidden');
+
+    setTimeout(() => {
+        toast.classList.add('hidden');
+    }, 3000);
+}
+
+function closeModal(modalId) {
+    document.getElementById(modalId).classList.remove('active');
+}
+
+function formatNumber(num) {
+    if (num === null || num === undefined) return '0';
+    return Number(num).toLocaleString('en-IN');
+}
+
+function formatDate(date) {
+    if (!date) return '';
+    const d = new Date(date);
+    return d.toISOString().split('T')[0];
+}
+
+function formatDisplayDate(dateStr) {
+    if (!dateStr) return '-';
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function formatDateForInput(dateStr) {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    return date.toISOString().split('T')[0];
+}
+
+function getMonthName(month) {
+    const months = ['', 'January', 'February', 'March', 'April', 'May', 'June', 
+                    'July', 'August', 'September', 'October', 'November', 'December'];
+    return months[parseInt(month)] || month;
+}
+
+// ============================================
+// END OF APP.JS
+// ============================================
