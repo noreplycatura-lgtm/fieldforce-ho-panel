@@ -730,20 +730,10 @@ async function loadPerformanceData() {
 }
 
 // ============================================
-// EMPLOYEES
+// EMPLOYEES - COMPLETE FIXED VERSION
 // ============================================
 
-let employeesLoaded = false;
-
-async function loadEmployees(forceReload = false) {
-    // Agar pehle se loaded hai aur force reload nahi hai, skip karo
-    if (employeesLoaded && allEmployees.length > 0 && !forceReload) {
-        console.log('[Employees] Using cached data');
-        renderEmployeesTable(allEmployees);
-        populateEmployeeDropdowns();
-        return;
-    }
-
+async function loadEmployees() {
     showLoading();
 
     try {
@@ -752,8 +742,7 @@ async function loadEmployees(forceReload = false) {
 
         if (response.success) {
             allEmployees = response.employees || [];
-            employeesLoaded = true;
-            console.log('[Employees] Loaded:', allEmployees.length);
+            console.log('[Employees] Loaded:', allEmployees.length, allEmployees);
             renderEmployeesTable(allEmployees);
             populateEmployeeDropdowns();
         } else {
