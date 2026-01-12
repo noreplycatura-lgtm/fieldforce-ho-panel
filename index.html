@@ -363,79 +363,58 @@
 <div id="transferCustomersTab" class="tab-content">
     <div class="transfer-container">
         
-        <!-- Method 1: Excel Template Transfer -->
+        <!-- Excel Template Method -->
         <div class="card">
             <div class="card-header">
                 <h3><i class="fas fa-file-excel"></i> Transfer by Excel Template</h3>
             </div>
             <div class="card-body">
                 
-                <!-- Step 1: Select Employee & Download -->
-                <div class="transfer-step">
-                    <div class="step-number">1</div>
-                    <div class="step-content">
-                        <h4>Select Employee & Download Customers</h4>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Select Employee</label>
-                                <select id="downloadEmpSelect" onchange="updateCustomerCount()">
-                                    <option value="">-- Select Employee --</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label>Total Customers</label>
-                                <input type="text" id="empCustomerCount" value="0" readonly class="count-display">
-                            </div>
-                        </div>
-                        <button class="btn btn-success" onclick="downloadCustomerTemplate()">
-                            <i class="fas fa-download"></i> Download Customer Template
-                        </button>
+                <!-- Step 1 -->
+                <div style="display: flex; gap: 16px; margin-bottom: 20px; align-items: flex-end; flex-wrap: wrap;">
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label>Select Employee</label>
+                        <select id="downloadEmpSelect" onchange="updateCustomerCount()" style="min-width: 200px;">
+                            <option value="">-- Select Employee --</option>
+                        </select>
                     </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label>Customers</label>
+                        <input type="text" id="empCustomerCount" value="0" readonly style="width: 80px; text-align: center; font-weight: bold;">
+                    </div>
+                    <button class="btn btn-success" onclick="downloadCustomerTemplate()">
+                        <i class="fas fa-download"></i> Download Template
+                    </button>
                 </div>
 
-                <!-- Step 2: Instructions -->
-                <div class="transfer-step">
-                    <div class="step-number">2</div>
-                    <div class="step-content">
-                        <h4>Edit Template File</h4>
-                        <div class="instruction-box">
-                            <p><strong>Template Format:</strong></p>
-                            <div class="code-block">
-customer_id | customer_name | current_emp_id | current_emp_name | new_emp_id
-CUST001     | Dr. ABC       | EMP001         | Rahul            | EMP002
-CUST002     | Dr. XYZ       | EMP001         | Rahul            | EMP003
-                            </div>
-                            <p class="text-muted" style="margin-top: 10px;">
-                                <i class="fas fa-info-circle"></i> 
-                                Sirf <strong>new_emp_id</strong> column me naya employee code likho. 
-                                Agar transfer nahi karna to wo row blank chod do ya delete kar do.
-                            </p>
-                        </div>
-                    </div>
+                <!-- Instructions -->
+                <div style="background: #f8f9fa; padding: 14px; border-radius: 6px; margin-bottom: 20px;">
+                    <p style="font-size: 12px; margin-bottom: 8px;"><strong>How to use:</strong></p>
+                    <ol style="font-size: 11px; margin-left: 16px; color: #666;">
+                        <li>Select employee and download template</li>
+                        <li>Open CSV file in Excel</li>
+                        <li>Fill <strong>new_emp_id</strong> column with target employee code</li>
+                        <li>Leave blank to skip that customer</li>
+                        <li>Save and upload below</li>
+                    </ol>
                 </div>
 
-                <!-- Step 3: Upload -->
-                <div class="transfer-step">
-                    <div class="step-number">3</div>
-                    <div class="step-content">
-                        <h4>Upload Updated File</h4>
-                        <div class="form-group">
-                            <label>Select Updated CSV/Excel File</label>
-                            <input type="file" id="transferUploadFile" accept=".csv,.xlsx" onchange="previewTransferFile()">
-                        </div>
-                        <div id="transferPreview" class="upload-preview hidden">
-                            <!-- Preview will appear here -->
-                        </div>
-                        <button class="btn btn-primary" onclick="processTransferUpload()" id="uploadTransferBtn" disabled>
-                            <i class="fas fa-upload"></i> Upload & Transfer Customers
-                        </button>
-                    </div>
+                <!-- Upload -->
+                <div class="form-group">
+                    <label>Upload Updated File</label>
+                    <input type="file" id="transferUploadFile" accept=".csv" onchange="previewTransferFile()">
                 </div>
-
+                
+                <div id="transferPreview" class="hidden" style="background: #f8f9fa; padding: 14px; border-radius: 6px; margin: 14px 0; max-height: 200px; overflow: auto;"></div>
+                
+                <button class="btn btn-primary" onclick="processTransferUpload()" id="uploadTransferBtn" disabled>
+                    <i class="fas fa-upload"></i> Upload & Transfer
+                </button>
+                
             </div>
         </div>
 
-        <!-- Method 2: Quick Manual Transfer -->
+        <!-- Quick Manual Transfer -->
         <div class="card" style="margin-top: 20px;">
             <div class="card-header">
                 <h3><i class="fas fa-exchange-alt"></i> Quick Manual Transfer</h3>
@@ -452,8 +431,8 @@ CUST002     | Dr. XYZ       | EMP001         | Rahul            | EMP003
                     </div>
                 </div>
                 <div class="form-group">
-                    <label>Select Customers to Transfer</label>
-                    <div class="checkbox-list" id="transferCustomersList">
+                    <label>Select Customers</label>
+                    <div class="checkbox-list" id="transferCustomersList" style="max-height: 200px; overflow-y: auto; border: 1px solid #ddd; border-radius: 6px; padding: 10px;">
                         <p class="text-muted">Select "From Employee" first</p>
                     </div>
                 </div>
@@ -463,17 +442,17 @@ CUST002     | Dr. XYZ       | EMP001         | Rahul            | EMP003
             </div>
         </div>
 
-        <!-- Employee Code Reference -->
+        <!-- Employee Reference -->
         <div class="card" style="margin-top: 20px;">
             <div class="card-header">
-                <h3><i class="fas fa-users"></i> Employee Code Reference</h3>
+                <h3><i class="fas fa-users"></i> Employee Codes Reference</h3>
             </div>
             <div class="card-body">
-                <button class="btn btn-secondary btn-sm" onclick="downloadEmployeeList()">
+                <button class="btn btn-secondary btn-sm" onclick="downloadEmployeeList()" style="margin-bottom: 10px;">
                     <i class="fas fa-download"></i> Download Employee List
                 </button>
-                <div class="table-container" style="margin-top: 14px; max-height: 250px; overflow-y: auto;">
-                    <table class="data-table" id="empReferenceTable">
+                <div class="table-container" style="max-height: 200px; overflow-y: auto;">
+                    <table class="data-table">
                         <thead>
                             <tr>
                                 <th>Emp ID</th>
@@ -491,7 +470,7 @@ CUST002     | Dr. XYZ       | EMP001         | Rahul            | EMP003
         </div>
 
     </div>
-</div> 
+</div>
 </section>
 
             <!-- Stockists Page -->
