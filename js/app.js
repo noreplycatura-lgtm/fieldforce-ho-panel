@@ -1243,12 +1243,33 @@ function filterCustomers() {
 }
 
 async function loadEmployeesForTransfer() {
+    // Make sure employees are loaded
     if (allEmployees.length === 0) {
-        await loadEmployees();
+        try {
+            const response = await apiCall('getAllEmployees');
+            if (response.success) {
+                allEmployees = response.employees || [];
+            }
+        } catch (error) {
+            console.error('Error loading employees');
+        }
     }
-    populateEmployeeDropdowns();
+    
+    // Make sure customers are loaded
+    if (allCustomers.length === 0) {
+        try {
+            const response = await apiCall('getAllCustomersHO');
+            if (response.success) {
+                allCustomers = response.customers || [];
+            }
+        } catch (error) {
+            console.error('Error loading customers');
+        }
+    }
+    
+    // Populate all dropdowns
+    populateTransferDropdowns();
 }
-
 async function loadTransferCustomers() {
     const fromEmpId = document.getElementById('transferFromEmp').value;
     const container = document.getElementById('transferCustomersList');
