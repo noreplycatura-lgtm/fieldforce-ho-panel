@@ -3245,5 +3245,405 @@ function populateTransferDropdowns() {
     loadEmployeeReferenceTable();
 }
 // ============================================
+// CUSTOMER TRANSFER - COMPLETE FUNCTIONS
+// ============================================
+
+async function loadTransferPageData() {
+    console.log('[Transfer] Loading transfer page data...');
+    
+    // Load employees if not loaded
+    if (!allEmployees || allEmployees.length === 0) {
+        try {
+            const response = await apiCall('getAllEmployees');
+            if (response.success) {
+                allEmployees = response.employees || [];
+                console.log('[Transfer] Employees loaded:', allEmployees.length);
+            }
+        } catch (error) {
+            console.error('[Transfer] Error loading employees:', error);
+        }
+    }
+    
+    // Load customers if not loaded
+    if (!allCustomers || allCustomers.length === 0) {
+        try {
+            const response = await apiCall('getAllCustomersHO');
+            if (response.success) {
+                allCustomers = response.customers || [];
+                console.log('[Transfer] Customers loaded:', allCustomers.length);
+            }
+        } catch (error) {
+            console.error('[Transfer] Error loading customers:', error);
+        }
+    }
+    
+    // Populate dropdowns
+    populateAllTransferDropdowns();
+}
+
+function populateAllTransferDropdowns() {
+    console.log('[Transfer] Populating dropdowns...');
+    
+    const activeEmployees = allEmployees.filter(e => e.status === 'Active');
+    console.log('[Transfer] Active employees:', activeEmployees.length);
+    
+    const optionsHTML = '<option value="">-- Select Employee --</option>' + 
+        activeEmployees.map(e => `<option value="${e.emp_id}">${e.emp_name} (${e.designation || ''})</option>`).join('');
+    
+    // Download template dropdown
+    const downloadSelect = document.getElementById('downloadEmpSelect');
+    if (downloadSelect) {
+        downloadSelect.innerHTML = optionsHTML;
+        console.log('[Transfer] downloadEmpSelect populated');
+    }
+    
+    // From employee dropdown
+    const fromSelect = document.getElementById('transferFromEmp');
+    if (fromSelect) {
+        fromSelect.innerHTML = optionsHTML;
+        console.log('[Transfer] transferFromEmp populated');
+    }
+    
+    // To employee dropdown
+    const toSelect = document.getElementById('transferToEmp');
+    if (toSelect) {
+        toSelect.innerHTML = optionsHTML;
+        console.log('[Transfer] transferToEmp populated');
+    }
+    
+    // Employee reference table
+    loadEmployeeReferenceTable();
+}
+
+function updateCustomerCount() {
+    const empId = document.getElementById('downloadEmpSelect')?.value;
+    const countInput = document.getElementById('empCustomerCount');
+    
+    if (!countInput) return;
+    
+    if (!empId) {
+        countInput.value = '0';
+        return;
+    }
+    
+    const empCustomers = allCustomers.filter(c => 
+        c.created_by === empId && c.status === 'Approved'
+    );
+    
+    countInput.value = empCustomers.length;
+    console.log('[Transfer] Customer count for', empId, ':', empCustomers.length);
+}
+
+function downloadCustomerTemplate() {
+    const empId = document.getElementById('downloadEmpSelect')?.value;
+    
+    if (!empId) {
+        showToast('Please select an employee first', 'error');
+        return;
+    }
+    
+    const empCustomers = allCustomers.filter(c => 
+        c.created_by === empId && c.status === 'Approved'
+    );
+    
+    if (empCustomers.length === 0) {
+        showToast('No customers found for this employee', 'error');
+        return;
+    }
+    
+    // Get employee name
+    const emp = allEmployees.find(e => e.emp_id === empId);
+    const empName = emp ? emp.emp_name : empId;
+    
+    // Create CSV content
+    let csvContent = 'customer_id,customer_name,specialty,mobile,current_emp_id,current_emp_name,new_emp_id\n';
+    
+    empCustomers.forEach(cust => {
+        const name = (cust.customer_name || '').replace(/,/g, ' ');
+        const specialty = (cust.specialty || '').replace(/,/g, ' ');
+        csvContent += `${cust.customer_id},${name},${specialty},${cust.mobile || ''},${empId},${empName},\n`;
+    });
+    
+    // Download file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const today = new Date().toISOString().split('T')[0];
+    const fileName = `customer_transfer_${empName.replace(/\s+/g, '_')}_${today}.csv`;
+    
+    link.href = URL.createObjectURL(blob);
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    showToast(`Downloaded ${empCustomers.length} customers`, 'success');
+}
+
+function previewTransferFile() {
+    const fileInput = document.getElementById('transferUploadFile');
+    const file = fileInput?.files[0];
+    const previewDiv = document.getElementById('transferPreview');
+    const uploadBtn = document.getElementById('uploadTransferBtn');
+    
+    if (!file) {
+        if (previewDiv) previewDiv.classList.add('hidden');
+        if (uploadBtn) uploadBtn.disabled = true;
+        return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = function(event) {
+        const text = event.target.result;
+        const lines = text.split('\n').filter(line => line.trim());
+        
+        if (lines.length < 2) {
+            previewDiv.innerHTML = '<p class="text-muted">File is empty or invalid</p>';
+            previewDiv.classList.remove('hidden');
+            uploadBtn.disabled = true;
+            return;
+        }
+        
+        const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+        const newEmpIdIndex = headers.indexOf('new_emp_id');
+        const customerIdIndex = headers.indexOf('customer_id');
+        const customerNameIndex = headers.indexOf('customer_name');
+        
+        if (customerIdIndex === -1 || newEmpIdIndex === -1) {
+            previewDiv.innerHTML = '<p style="color: red;">Invalid file. Required columns: customer_id, new_emp_id</p>';
+            previewDiv.classList.remove('hidden');
+            uploadBtn.disabled = true;
+            return;
+        }
+        
+        let validCount = 0;
+        let skipCount = 0;
+        let previewHTML = '<h5>Preview:</h5><table><thead><tr><th>Customer ID</th><th>Name</th><th>New Emp ID</th><th>Status</th></tr></thead><tbody>';
+        
+        for (let i = 1; i < lines.length; i++) {
+            const values = lines[i].split(',').map(v => v.trim());
+            const customerId = values[customerIdIndex] || '';
+            const customerName = values[customerNameIndex] || '';
+            const newEmpId = values[newEmpIdIndex] || '';
+            
+            if (newEmpId && newEmpId.length > 0) {
+                validCount++;
+                if (i <= 10) {
+                    previewHTML += `<tr style="background: rgba(16,185,129,0.1);">
+                        <td>${customerId}</td><td>${customerName}</td><td>${newEmpId}</td>
+                        <td><span class="status approved">Transfer</span></td>
+                    </tr>`;
+                }
+            } else {
+                skipCount++;
+                if (i <= 10) {
+                    previewHTML += `<tr style="background: #f5f5f5; color: #999;">
+                        <td>${customerId}</td><td>${customerName}</td><td>-</td>
+                        <td><span class="status pending">Skip</span></td>
+                    </tr>`;
+                }
+            }
+        }
+        
+        previewHTML += '</tbody></table>';
+        previewHTML += `<p style="margin-top:10px;"><strong>To Transfer: ${validCount}</strong> | Skip: ${skipCount}</p>`;
+        
+        previewDiv.innerHTML = previewHTML;
+        previewDiv.classList.remove('hidden');
+        uploadBtn.disabled = validCount === 0;
+    };
+    
+    reader.readAsText(file);
+}
+
+async function processTransferUpload() {
+    const fileInput = document.getElementById('transferUploadFile');
+    const file = fileInput?.files[0];
+    
+    if (!file) {
+        showToast('Please select a file', 'error');
+        return;
+    }
+    
+    if (!confirm('Transfer customers as per the uploaded file?')) {
+        return;
+    }
+    
+    showLoading();
+    
+    const reader = new FileReader();
+    reader.onload = async function(event) {
+        const text = event.target.result;
+        const lines = text.split('\n').filter(line => line.trim());
+        
+        const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+        const newEmpIdIndex = headers.indexOf('new_emp_id');
+        const customerIdIndex = headers.indexOf('customer_id');
+        
+        let successCount = 0;
+        let failCount = 0;
+        
+        for (let i = 1; i < lines.length; i++) {
+            const values = lines[i].split(',').map(v => v.trim());
+            const customerId = values[customerIdIndex] || '';
+            const newEmpId = values[newEmpIdIndex] || '';
+            
+            if (!newEmpId || newEmpId.length === 0) continue;
+            
+            try {
+                const response = await apiCall('transferCustomer', {
+                    customer_id: customerId,
+                    new_emp_id: newEmpId
+                });
+                
+                if (response.success) {
+                    successCount++;
+                } else {
+                    failCount++;
+                }
+            } catch (error) {
+                failCount++;
+            }
+        }
+        
+        hideLoading();
+        showToast(`Transferred: ${successCount}, Failed: ${failCount}`, successCount > 0 ? 'success' : 'error');
+        
+        // Reset
+        fileInput.value = '';
+        document.getElementById('transferPreview').classList.add('hidden');
+        document.getElementById('uploadTransferBtn').disabled = true;
+        
+        // Reload
+        loadAllCustomers();
+    };
+    
+    reader.readAsText(file);
+}
+
+function downloadEmployeeList() {
+    if (allEmployees.length === 0) {
+        showToast('No employees loaded', 'error');
+        return;
+    }
+    
+    let csvContent = 'emp_id,emp_name,designation,mobile,status\n';
+    
+    allEmployees.filter(e => e.status === 'Active').forEach(emp => {
+        csvContent += `${emp.emp_id},${emp.emp_name || ''},${emp.designation || ''},${emp.mobile || ''},${emp.status || ''}\n`;
+    });
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `employee_list.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    showToast('Employee list downloaded', 'success');
+}
+
+function loadEmployeeReferenceTable() {
+    const tbody = document.getElementById('empReferenceBody');
+    if (!tbody) return;
+    
+    const activeEmps = allEmployees.filter(e => e.status === 'Active');
+    
+    if (activeEmps.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center">No employees</td></tr>';
+        return;
+    }
+    
+    tbody.innerHTML = activeEmps.map(emp => `
+        <tr>
+            <td><strong>${emp.emp_id}</strong></td>
+            <td>${emp.emp_name || ''}</td>
+            <td>${emp.designation || '-'}</td>
+            <td><span class="status active">${emp.status}</span></td>
+        </tr>
+    `).join('');
+}
+
+async function loadTransferCustomers() {
+    const fromEmpId = document.getElementById('transferFromEmp')?.value;
+    const container = document.getElementById('transferCustomersList');
+    
+    if (!container) return;
+    
+    if (!fromEmpId) {
+        container.innerHTML = '<p class="text-muted">Select "From Employee" first</p>';
+        return;
+    }
+    
+    const empCustomers = allCustomers.filter(c => c.created_by === fromEmpId && c.status === 'Approved');
+    
+    if (empCustomers.length === 0) {
+        container.innerHTML = '<p class="text-muted">No customers found</p>';
+        return;
+    }
+    
+    container.innerHTML = `
+        <div class="checkbox-item">
+            <input type="checkbox" id="selectAllTransfer" onchange="toggleSelectAllTransfer(this)">
+            <label for="selectAllTransfer"><strong>Select All (${empCustomers.length})</strong></label>
+        </div>
+    ` + empCustomers.map(cust => `
+        <div class="checkbox-item">
+            <input type="checkbox" class="transfer-cust-cb" value="${cust.customer_id}" id="tc_${cust.customer_id}">
+            <label for="tc_${cust.customer_id}">${cust.customer_name} (${cust.customer_code || cust.customer_id})</label>
+        </div>
+    `).join('');
+}
+
+function toggleSelectAllTransfer(checkbox) {
+    document.querySelectorAll('.transfer-cust-cb').forEach(cb => {
+        cb.checked = checkbox.checked;
+    });
+}
+
+async function bulkTransferCustomers() {
+    const toEmpId = document.getElementById('transferToEmp')?.value;
+    
+    if (!toEmpId) {
+        showToast('Select target employee', 'error');
+        return;
+    }
+    
+    const selected = [];
+    document.querySelectorAll('.transfer-cust-cb:checked').forEach(cb => {
+        selected.push(cb.value);
+    });
+    
+    if (selected.length === 0) {
+        showToast('Select at least one customer', 'error');
+        return;
+    }
+    
+    if (!confirm(`Transfer ${selected.length} customer(s)?`)) return;
+    
+    showLoading();
+    
+    try {
+        const response = await apiCall('bulkTransferCustomers', {
+            customer_ids: selected,
+            new_emp_id: toEmpId
+        });
+        
+        hideLoading();
+        
+        if (response.success) {
+            showToast(response.message || 'Customers transferred', 'success');
+            document.getElementById('transferCustomersList').innerHTML = '<p class="text-muted">Select "From Employee" first</p>';
+            loadAllCustomers();
+        } else {
+            showToast(response.error || 'Transfer failed', 'error');
+        }
+    } catch (error) {
+        hideLoading();
+        showToast('Connection error', 'error');
+    }
+}
+
+// ============================================
 // END OF APP.JS
 // ============================================
