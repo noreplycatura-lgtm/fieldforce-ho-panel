@@ -16,6 +16,246 @@ let allAnnouncements = [];
 let currentBulkUploadType = '';
 
 // ============================================
+// CACHE & SYNC CONFIGURATION
+// ============================================
+
+const CACHE_KEYS = {
+    EMPLOYEES: 'employees',
+    CUSTOMERS: 'customers',
+    STOCKISTS: 'stockists',
+    PRODUCTS: 'products',
+    AREAS: 'areas',
+    PENDING_CUSTOMERS: 'pendingCustomers',
+    PENDING_EXPENSES: 'pendingExpenses',
+    ANNOUNCEMENTS: 'announcements',
+    SETTINGS: 'settings',
+    LAST_SYNC: 'lastSyncTime'
+};
+
+let isSyncing = false;
+let lastSyncTime = null;
+
+// ============================================
+// LOCAL STORAGE CACHE FUNCTIONS
+// ============================================
+
+function saveToCache(key, data) {
+    try {
+        const cacheData = {
+            data: data,
+            timestamp: new Date().toISOString()
+        };
+        localStorage.setItem(`cache_${key}`, JSON.stringify(cacheData));
+        console.log(`[Cache] Saved: ${key}`);
+    } catch (error) {
+        console.error(`[Cache] Error saving ${key}:`, error);
+        // If localStorage is full, clear old data
+        if (error.name === 'QuotaExceededError') {
+            clearOldCache();
+            localStorage.setItem(`cache_${key}`, JSON.stringify(cacheData));
+        }
+    }
+}
+
+function getFromCache(key) {
+    try {
+        const cached = localStorage.getItem(`cache_${key}`);
+        if (cached) {
+            const cacheData = JSON.parse(cached);
+            console.log(`[Cache] Retrieved: ${key}`);
+            return cacheData.data;
+        }
+    } catch (error) {
+        console.error(`[Cache] Error reading ${key}:`, error);
+    }
+    return null;
+}
+
+function getCacheTimestamp(key) {
+    try {
+        const cached = localStorage.getItem(`cache_${key}`);
+        if (cached) {
+            const cacheData = JSON.parse(cached);
+            return cacheData.timestamp;
+        }
+    } catch (error) {
+        console.error(`[Cache] Error reading timestamp for ${key}:`, error);
+    }
+    return null;
+}
+
+function clearOldCache() {
+    const keys = Object.keys(localStorage);
+    keys.forEach(key => {
+        if (key.startsWith('cache_')) {
+            localStorage.removeItem(key);
+        }
+    });
+    console.log('[Cache] Old cache cleared');
+}
+
+function clearAllCache() {
+    clearOldCache();
+    showToast('Cache cleared', 'success');
+}
+
+// ============================================
+// BACKGROUND SYNC FUNCTIONS
+// ============================================
+
+async function syncAllData() {
+    if (isSyncing) {
+        console.log('[Sync] Already syncing...');
+        return;
+    }
+    
+    isSyncing = true;
+    updateSyncStatus('syncing');
+    console.log('[Sync] Starting full sync...');
+    
+    try {
+        // Sync all data endpoints
+        const syncTasks = [
+            syncData('getAllEmployees', CACHE_KEYS.EMPLOYEES, (data) => { allEmployees = data.employees || []; }),
+            syncData('getAllCustomersHO', CACHE_KEYS.CUSTOMERS, (data) => { allCustomers = data.customers || []; }),
+            syncData('getAllStockistsHO', CACHE_KEYS.STOCKISTS, (data) => { allStockists = data.stockists || []; }),
+            syncData('getAllProducts', CACHE_KEYS.PRODUCTS, (data) => { allProducts = data.products || []; }),
+            syncData('getAllAreas', CACHE_KEYS.AREAS, (data) => { allAreas = data.areas || []; }),
+            syncData('getAnnouncements', CACHE_KEYS.ANNOUNCEMENTS, (data) => { allAnnouncements = data.announcements || []; }),
+            syncData('getSettings', CACHE_KEYS.SETTINGS, null)
+        ];
+        
+        await Promise.all(syncTasks);
+        
+        // Update last sync time
+        lastSyncTime = new Date().toISOString();
+        saveToCache(CACHE_KEYS.LAST_SYNC, { timestamp: lastSyncTime });
+        
+        updateSyncStatus('success');
+        console.log('[Sync] Full sync completed');
+        
+        return true;
+    } catch (error) {
+        console.error('[Sync] Sync failed:', error);
+        updateSyncStatus('error');
+        return false;
+    } finally {
+        isSyncing = false;
+    }
+}
+
+async function syncData(action, cacheKey, callback) {
+    try {
+        const response = await apiCall(action);
+        
+        if (response.success) {
+            saveToCache(cacheKey, response);
+            if (callback) {
+                callback(response);
+            }
+            console.log(`[Sync] ${cacheKey} synced`);
+        }
+    } catch (error) {
+        console.error(`[Sync] Failed to sync ${cacheKey}:`, error);
+        // Use cached data if available
+        const cachedData = getFromCache(cacheKey);
+        if (cachedData && callback) {
+            callback(cachedData);
+            console.log(`[Sync] Using cached data for ${cacheKey}`);
+        }
+    }
+}
+
+function updateSyncStatus(status) {
+    const syncBtn = document.getElementById('refreshBtn');
+    const syncIcon = syncBtn?.querySelector('i');
+    
+    if (!syncBtn || !syncIcon) return;
+    
+    switch (status) {
+        case 'syncing':
+            syncIcon.className = 'fas fa-sync-alt fa-spin';
+            syncBtn.disabled = true;
+            break;
+        case 'success':
+            syncIcon.className = 'fas fa-sync-alt';
+            syncBtn.disabled = false;
+            showToast('Data synced successfully', 'success');
+            break;
+        case 'error':
+            syncIcon.className = 'fas fa-sync-alt';
+            syncBtn.disabled = false;
+            showToast('Sync failed. Using cached data.', 'error');
+            break;
+        default:
+            syncIcon.className = 'fas fa-sync-alt';
+            syncBtn.disabled = false;
+    }
+}
+
+// Manual sync trigger
+async function manualSync() {
+    console.log('[Sync] Manual sync triggered');
+    
+    // Trigger service worker sync
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({
+            type: 'MANUAL_SYNC'
+        });
+    }
+    
+    // Also do immediate sync
+    await syncAllData();
+    refreshCurrentPage();
+}
+
+// Auto sync on visibility change
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+        // Check if last sync was more than 5 minutes ago
+        const lastSync = getFromCache(CACHE_KEYS.LAST_SYNC);
+        if (lastSync) {
+            const lastSyncDate = new Date(lastSync.timestamp);
+            const now = new Date();
+            const diffMinutes = (now - lastSyncDate) / (1000 * 60);
+            
+            if (diffMinutes > 5) {
+                console.log('[Sync] Auto-syncing (last sync > 5 min ago)');
+                syncAllData();
+            }
+        } else {
+            syncAllData();
+        }
+    }
+});
+
+// ============================================
+// LOAD DATA WITH CACHE FALLBACK
+// ============================================
+
+async function loadDataWithCache(action, cacheKey, callback) {
+    // First, try to load from cache for instant display
+    const cachedData = getFromCache(cacheKey);
+    if (cachedData) {
+        console.log(`[Cache] Showing cached data for ${cacheKey}`);
+        if (callback) callback(cachedData);
+    }
+    
+    // Then fetch fresh data in background
+    try {
+        const response = await apiCall(action);
+        if (response.success) {
+            saveToCache(cacheKey, response);
+            if (callback) callback(response);
+        }
+    } catch (error) {
+        console.error(`[API] Error fetching ${cacheKey}:`, error);
+        if (!cachedData) {
+            showToast('Failed to load data. Check your connection.', 'error');
+        }
+    }
+}
+// ============================================
 // INITIALIZATION
 // ============================================
 
@@ -23,10 +263,20 @@ document.addEventListener('DOMContentLoaded', function() {
     // Check if already logged in
     const savedUser = localStorage.getItem('hoUser');
     if (savedUser) {
-        currentUser = JSON.parse(savedUser);
-        showMainApp();
-        loadDashboard();
-    }
+    currentUser = JSON.parse(savedUser);
+    showMainApp();
+    loadDashboard();
+    
+    // Start background sync
+    syncAllData();
+    
+    // Setup periodic sync (every 5 minutes)
+    setInterval(() => {
+        if (document.visibilityState === 'visible') {
+            syncAllData();
+        }
+    }, 5 * 60 * 1000);
+}
 
     // Setup event listeners
     setupEventListeners();
@@ -57,7 +307,7 @@ function setupEventListeners() {
     document.getElementById('logoutBtn').addEventListener('click', handleLogout);
 
     // Refresh Button
-    document.getElementById('refreshBtn').addEventListener('click', refreshCurrentPage);
+    document.getElementById('refreshBtn').addEventListener('click', manualSync);
 
     // Tabs
     document.querySelectorAll('.tab').forEach(tab => {
