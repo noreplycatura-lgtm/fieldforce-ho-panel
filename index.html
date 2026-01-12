@@ -304,41 +304,60 @@
                 </div>
 
                 <!-- All Customers Tab -->
-                <div id="allCustomersTab" class="tab-content">
-                    <div class="page-actions">
-                        <div class="search-box">
-                            <i class="fas fa-search"></i>
-                            <input type="text" id="custSearch" placeholder="Search customers...">
-                        </div>
-                        <div class="filter-group">
-                            <select id="custStatusFilter">
-                                <option value="all">All Status</option>
-                                <option value="Approved">Approved</option>
-                                <option value="Pending">Pending</option>
-                                <option value="Rejected">Rejected</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="table-container">
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>Code</th>
-                                    <th>Customer Name</th>
-                                    <th>Specialty</th>
-                                    <th>Area</th>
-                                    <th>City</th>
-                                    <th>Mobile</th>
-                                    <th>Status</th>
-                                    <th>Created By</th>
-                                </tr>
-                            </thead>
-                            <tbody id="allCustomersBody">
-                                <tr><td colspan="8" class="text-center">Loading...</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+<div id="allCustomersTab" class="tab-content">
+    <div class="page-actions">
+        <div class="search-box">
+            <i class="fas fa-search"></i>
+            <input type="text" id="custSearch" placeholder="Search customers..." oninput="filterCustomers()">
+        </div>
+        <div class="filter-group">
+            <select id="custStatusFilter" onchange="filterCustomers()">
+                <option value="all">All Status</option>
+                <option value="Approved">Approved</option>
+                <option value="Pending">Pending</option>
+                <option value="Rejected">Rejected</option>
+            </select>
+        </div>
+    </div>
+    
+    <!-- Transfer Section -->
+    <div class="transfer-action-bar">
+        <div class="transfer-info">
+            <span>Selected: <strong id="selectedCustomerCount">0</strong> customer(s)</span>
+        </div>
+        <div class="transfer-controls">
+            <select id="transferTargetEmp">
+                <option value="">-- Transfer To --</option>
+            </select>
+            <button class="btn btn-primary btn-sm" onclick="transferSelectedCustomers()">
+                <i class="fas fa-exchange-alt"></i> Transfer Selected
+            </button>
+        </div>
+    </div>
+    
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th style="width: 40px;">
+                        <input type="checkbox" id="selectAllCust" onchange="selectAllCustomers(this)">
+                    </th>
+                    <th>Code</th>
+                    <th>Customer Name</th>
+                    <th>Specialty</th>
+                    <th>Area</th>
+                    <th>City</th>
+                    <th>Mobile</th>
+                    <th>Status</th>
+                    <th>Created By</th>
+                </tr>
+            </thead>
+            <tbody id="allCustomersBody">
+                <tr><td colspan="9" class="text-center">Loading...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
 
                 <!-- Transfer Customers Tab -->
 <div id="transferCustomersTab" class="tab-content">
