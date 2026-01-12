@@ -362,48 +362,137 @@
                 <!-- Transfer Customers Tab -->
 <div id="transferCustomersTab" class="tab-content">
     <div class="transfer-container">
-        <!-- Manual Transfer -->
-        <div class="transfer-box">
-            <h4>Manual Transfer</h4>
-            <div class="form-group">
-                <label>From Employee</label>
-                <select id="transferFromEmp"></select>
+        
+        <!-- Method 1: Excel Template Transfer -->
+        <div class="card">
+            <div class="card-header">
+                <h3><i class="fas fa-file-excel"></i> Transfer by Excel Template</h3>
             </div>
-            <div class="form-group">
-                <label>To Employee</label>
-                <select id="transferToEmp"></select>
-            </div>
-            <div class="form-group">
-                <label>Select Customers</label>
-                <div class="checkbox-list" id="transferCustomersList">
-                    <p class="text-muted">Select "From Employee" first</p>
+            <div class="card-body">
+                
+                <!-- Step 1: Select Employee & Download -->
+                <div class="transfer-step">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <h4>Select Employee & Download Customers</h4>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Select Employee</label>
+                                <select id="downloadEmpSelect" onchange="updateCustomerCount()">
+                                    <option value="">-- Select Employee --</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Total Customers</label>
+                                <input type="text" id="empCustomerCount" value="0" readonly class="count-display">
+                            </div>
+                        </div>
+                        <button class="btn btn-success" onclick="downloadCustomerTemplate()">
+                            <i class="fas fa-download"></i> Download Customer Template
+                        </button>
+                    </div>
                 </div>
+
+                <!-- Step 2: Instructions -->
+                <div class="transfer-step">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <h4>Edit Template File</h4>
+                        <div class="instruction-box">
+                            <p><strong>Template Format:</strong></p>
+                            <div class="code-block">
+customer_id | customer_name | current_emp_id | current_emp_name | new_emp_id
+CUST001     | Dr. ABC       | EMP001         | Rahul            | EMP002
+CUST002     | Dr. XYZ       | EMP001         | Rahul            | EMP003
+                            </div>
+                            <p class="text-muted" style="margin-top: 10px;">
+                                <i class="fas fa-info-circle"></i> 
+                                Sirf <strong>new_emp_id</strong> column me naya employee code likho. 
+                                Agar transfer nahi karna to wo row blank chod do ya delete kar do.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 3: Upload -->
+                <div class="transfer-step">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <h4>Upload Updated File</h4>
+                        <div class="form-group">
+                            <label>Select Updated CSV/Excel File</label>
+                            <input type="file" id="transferUploadFile" accept=".csv,.xlsx" onchange="previewTransferFile()">
+                        </div>
+                        <div id="transferPreview" class="upload-preview hidden">
+                            <!-- Preview will appear here -->
+                        </div>
+                        <button class="btn btn-primary" onclick="processTransferUpload()" id="uploadTransferBtn" disabled>
+                            <i class="fas fa-upload"></i> Upload & Transfer Customers
+                        </button>
+                    </div>
+                </div>
+
             </div>
-            <button class="btn btn-primary" onclick="bulkTransferCustomers()">
-                <i class="fas fa-exchange-alt"></i> Transfer Selected
-            </button>
         </div>
 
-        <!-- Bulk Transfer by File -->
-        <div class="transfer-box" style="margin-top: 20px;">
-            <h4>Bulk Transfer by File</h4>
-            <div class="upload-instructions">
-                <p>Upload CSV file with customer_id and new_emp_id columns</p>
-                <button class="btn btn-secondary btn-sm" onclick="downloadTemplate('customer_transfer')">
-                    <i class="fas fa-download"></i> Download Template
+        <!-- Method 2: Quick Manual Transfer -->
+        <div class="card" style="margin-top: 20px;">
+            <div class="card-header">
+                <h3><i class="fas fa-exchange-alt"></i> Quick Manual Transfer</h3>
+            </div>
+            <div class="card-body">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>From Employee</label>
+                        <select id="transferFromEmp" onchange="loadTransferCustomers()"></select>
+                    </div>
+                    <div class="form-group">
+                        <label>To Employee</label>
+                        <select id="transferToEmp"></select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Select Customers to Transfer</label>
+                    <div class="checkbox-list" id="transferCustomersList">
+                        <p class="text-muted">Select "From Employee" first</p>
+                    </div>
+                </div>
+                <button class="btn btn-primary" onclick="bulkTransferCustomers()">
+                    <i class="fas fa-exchange-alt"></i> Transfer Selected
                 </button>
             </div>
-            <div class="form-group">
-                <label>Select CSV File</label>
-                <input type="file" id="transferFileInput" accept=".csv">
-            </div>
-            <button class="btn btn-primary" onclick="bulkTransferByFile()">
-                <i class="fas fa-upload"></i> Upload & Transfer
-            </button>
         </div>
+
+        <!-- Employee Code Reference -->
+        <div class="card" style="margin-top: 20px;">
+            <div class="card-header">
+                <h3><i class="fas fa-users"></i> Employee Code Reference</h3>
+            </div>
+            <div class="card-body">
+                <button class="btn btn-secondary btn-sm" onclick="downloadEmployeeList()">
+                    <i class="fas fa-download"></i> Download Employee List
+                </button>
+                <div class="table-container" style="margin-top: 14px; max-height: 250px; overflow-y: auto;">
+                    <table class="data-table" id="empReferenceTable">
+                        <thead>
+                            <tr>
+                                <th>Emp ID</th>
+                                <th>Name</th>
+                                <th>Designation</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="empReferenceBody">
+                            <tr><td colspan="4" class="text-center">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
     </div>
-</div>
-            </section>
+</div> 
+</section>
 
             <!-- Stockists Page -->
             <section id="stockistsPage" class="content-page">
