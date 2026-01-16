@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Settings - Admin Panel</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container-fluid py-4">
+        <h2 class="mb-4"><i class="fas fa-cog me-2"></i>System Settings</h2>
+        
+        <div class="row">
+            <div class="col-md-8">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-sliders-h me-2"></i>General Settings</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="generalSettingsForm">
+                            <div class="mb-3">
+                                <label class="form-label">Default Radius (meters)</label>
+                                <input type="number" class="form-control" id="defaultRadius" value="300">
+                                <div class="form-text">Default radius for customer visits</div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Maximum Radius (meters)</label>
+                                <input type="number" class="form-control" id="maxRadius" value="500">
+                                <div class="form-text">Maximum allowed radius for visits</div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">HQ Allowance (₹)</label>
+                                <input type="number" class="form-control" id="hqAllowance" value="200">
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Ex-HQ Allowance (₹)</label>
+                                <input type="number" class="form-control" id="exHqAllowance" value="400">
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Outstation Allowance (₹)</label>
+                                <input type="number" class="form-control" id="outstationAllowance" value="800">
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">KM Rate (₹ per KM)</label>
+                                <input type="number" class="form-control" id="kmRate" value="5" step="0.1">
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Monthly Mobile Allowance (₹)</label>
+                                <input type="number" class="form-control" id="mobileAllowance" value="500">
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Max Photo Size (KB)</label>
+                                <input type="number" class="form-control" id="photoMaxSize" value="100">
+                            </div>
+                            
+                            <button type="button" class="btn btn-primary" onclick="saveGeneralSettings()">
+                                <i class="fas fa-save me-1"></i>Save Settings
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-user-check me-2"></i>Approval Settings</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" id="requireCustomerApproval" checked>
+                            <label class="form-check-label" for="requireCustomerApproval">
+                                Require Approval for New Customers
+                            </label>
+                            <div class="form-text">
+                                When enabled, new customer creations require HO approval. 
+                                When disabled, customers are automatically approved.
+                            </div>
+                        </div>
+                        
+                        <button type="button" class="btn btn-primary" onclick="saveApprovalSettings()">
+                            <i class="fas fa-save me-1"></i>Save Approval Settings
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-sync-alt me-2"></i>System Information</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">Last Sync</label>
+                            <div class="border rounded p-2 bg-light">
+                                <span id="lastSyncTime">Just now</span>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Total Records</label>
+                            <div class="border rounded p-2 bg-light">
+                                <div class="d-flex justify-content-between">
+                                    <span>Employees:</span>
+                                    <span id="employeeCount">0</span>
+                                </div>
+                                <div class="d-flex justify-content-between">
+                                    <span>Customers:</span>
+                                    <span id="customerCount">0</span>
+                                </div>
+                                <div class="d-flex justify-content-between">
+                                    <span>Products:</span>
+                                    <span id="productCount">0</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <button class="btn btn-outline-primary w-100 mb-2" onclick="forceSync()">
+                            <i class="fas fa-sync me-1"></i>Force Sync
+                        </button>
+                        <button class="btn btn-outline-secondary w-100" onclick="clearCache()">
+                            <i class="fas fa-trash me-1"></i>Clear Cache
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-database me-2"></i>Data Backup</h5>
+                    </div>
+                    <div class="card-body">
+                        <button class="btn btn-success w-100 mb-2" onclick="backupData()">
+                            <i class="fas fa-download me-1"></i>Backup All Data
+                        </button>
+                        <button class="btn btn-warning w-100" onclick="restoreData()">
+                            <i class="fas fa-upload me-1"></i>Restore Data
+                        </button>
+                        <div class="form-text mt-2">
+                            Regular backups are recommended to prevent data loss.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/settings.js"></script>
+</body>
+</html>
